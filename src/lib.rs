@@ -358,9 +358,13 @@ mod tests {
 
         let critters = Critters::new(Default::default());
 
-        match critters.process(html) {
-            Ok(result) => println!("{}", result),
-            Err(e) => panic!("Error: {}", e),
-        }
+        let processed = critters.process(html).unwrap();
+        
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+        
+        assert!(stylesheet.contains(".critical"));
+        assert!(!stylesheet.contains(".non-critical"));
     }
 }
