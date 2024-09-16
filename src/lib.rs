@@ -2,10 +2,7 @@ use kuchikiki::traits::TendrilSink;
 use kuchikiki::{ElementData, NodeData, NodeDataRef, NodeRef};
 use lightningcss::printer::PrinterOptions;
 use lightningcss::properties::PropertyId;
-use lightningcss::rules::font_face::FontFaceProperty;
-use lightningcss::rules::keyframes::KeyframesName;
-use lightningcss::rules::style::StyleRule;
-use lightningcss::rules::CssRule;
+use lightningcss::rules::{font_face::FontFaceProperty, keyframes::KeyframesName, CssRule};
 use lightningcss::selector::SelectorList;
 use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
@@ -17,6 +14,9 @@ use std::collections::HashSet;
 use std::default;
 use std::fs;
 use std::path::PathBuf;
+use utils::StyleRuleExt;
+
+mod utils;
 
 #[derive(Debug, Default)]
 pub enum PreloadStrategy {
@@ -145,8 +145,9 @@ impl Critters {
         // Extract and inline critical CSS
         for style in styles {
             let res = self.process_style(style, dom.clone());
+            // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
-                warn!("Error encountered when processing stylesheet. {}", err)
+                warn!("Error encountered when processing stylesheet. {}", err);
             }
         }
 
@@ -189,16 +190,6 @@ impl Critters {
         let mut ast = StyleSheet::parse(&sheet, Default::default())
             .map_err(|_| anyhow::Error::msg("Failed to parse stylesheet."))?;
 
-        fn get_rule_id(rule: &StyleRule) -> u32 {
-            fn cantor(a: u32, b: u32) -> u32 {
-                (a + b + 1) * (a + b) / 2 + b
-            }
-            cantor(
-                rule.loc.source_index,
-                cantor(rule.loc.line, rule.loc.column),
-            )
-        }
-
         // TODO: use a visitor to handle nested rules
         // First pass, mark rules not present in the document for removal
         for rule in &mut ast.rules.0 {
@@ -236,7 +227,7 @@ impl Critters {
                     .collect::<Vec<_>>();
 
                 if filtered_selectors.is_empty() {
-                    rules_to_remove.insert(get_rule_id(style_rule));
+                    rules_to_remove.insert(style_rule.id());
                     break;
                 } else {
                     style_rule.selectors = SelectorList::new(filtered_selectors.into());
@@ -271,7 +262,7 @@ impl Critters {
 
         let mut preloaded_fonts = HashSet::new();
         ast.rules.0.retain(|rule| match rule {
-            CssRule::Style(s) => !rules_to_remove.contains(&get_rule_id(s)),
+            CssRule::Style(s) => !rules_to_remove.contains(&s.id()),
             CssRule::Keyframes(k) => {
                 // TODO: keyframes mode options
                 let kf_name = match &k.name {
