@@ -1,5 +1,6 @@
 use kuchikiki::traits::TendrilSink;
 use kuchikiki::{ElementData, NodeData, NodeDataRef, NodeRef};
+use lightningcss::printer::PrinterOptions;
 use lightningcss::properties::PropertyId;
 use lightningcss::rules::font_face::FontFaceProperty;
 use lightningcss::rules::keyframes::KeyframesName;
@@ -17,28 +18,101 @@ use std::default;
 use std::fs;
 use std::path::PathBuf;
 
+#[derive(Debug, Default)]
+pub enum PreloadStrategy {
+    /// Move stylesheet links to the end of the document and insert preload meta tags in their place.
+    #[default]
+    BodyPreload,
+    /// Move all external stylesheet links to the end of the document.
+    Body,
+    /// Load stylesheets asynchronously by adding media="not x" and removing once loaded. JS
+    Media,
+    /// Convert stylesheet links to preloads that swap to rel="stylesheet" once loaded (details). JS
+    Swap,
+    /// Use <link rel="alternate stylesheet preload"> and swap to rel="stylesheet" once loaded (details). JS
+    SwapHigh,
+    /// Inject an asynchronous CSS loader similar to LoadCSS and use it to load stylesheets. JS
+    Js,
+    /// Like "js", but the stylesheet is disabled until fully loaded.
+    JsLazy,
+    /// Disables adding preload tags.
+    None,
+}
+
+#[derive(Debug, Default)]
+pub enum KeyframesStrategy {
+    /// Inline keyframes rules used by the critical CSS
+    #[default]
+    Critical,
+    /// Inline all keyframes rules
+    All,
+    /// Remove all keyframes rules
+    None,
+}
+
+#[derive(Debug)]
+pub enum SelectorMatcher {
+    String(String),
+    Regex(Regex),
+}
+
+#[derive(Debug)]
 pub struct CrittersOptions {
+    /// Base path location of the CSS files
     pub path: String,
+    /// Public path of the CSS resources. This prefix is removed from the href.
     pub public_path: String,
-    pub reduce_inline_styles: bool,
+    /// Inline styles from external stylesheets
+    pub external: bool,
+    /// Inline stylesheets smaller than a given size.
+    pub inline_threshold: usize,
+    /// If the non-critical external stylesheet would be below this size, just inline it
+    pub minimum_external_size: usize,
+    /// Remove inlined rules from the external stylesheet
     pub prune_source: bool,
+    /// Merged inlined stylesheets into a single `<style>` tag
+    pub merge_stylesheets: bool,
+    /// Glob for matching other stylesheets to be used while looking for critical CSS.
     pub additional_stylesheets: Vec<String>,
-    pub allow_rules: Vec<String>,
-    pub preload_fonts: bool,
+    /// Option indicates if inline styles should be evaluated for critical CSS. By default
+    /// inline style tags will be evaluated and rewritten to only contain critical CSS.
+    /// Set it to false to skip processing inline styles.
+    pub reduce_inline_styles: bool,
+    /// Which preload strategy to use.
+    pub preload: PreloadStrategy,
+    /// Add <noscript> fallback to JS-based strategies.
+    pub noscript_fallback: bool,
+    /// Inline critical font-face rules.
     pub inline_fonts: bool,
+    /// Preloads critical fonts (default: true)
+    pub preload_fonts: bool,
+    /// Controls which keyframes rules are inlined.
+    pub keyframes: KeyframesStrategy,
+    /// Compress resulting critical CSS
+    pub compress: bool,
+    /// Provide a list of selectors that should be included in the critical CSS.
+    pub allow_rules: Vec<SelectorMatcher>,
 }
 
 impl default::Default for CrittersOptions {
     fn default() -> Self {
         Self {
-            path: "./dist".to_string(),
+            path: Default::default(),
             public_path: Default::default(),
-            reduce_inline_styles: Default::default(),
-            prune_source: Default::default(),
+            external: true,
+            inline_threshold: 0,
+            minimum_external_size: 0,
+            prune_source: false,
+            merge_stylesheets: true,
             additional_stylesheets: Default::default(),
+            reduce_inline_styles: true,
+            preload: Default::default(),
+            noscript_fallback: true,
+            inline_fonts: false,
+            preload_fonts: true,
+            keyframes: Default::default(),
+            compress: true,
             allow_rules: Default::default(),
-            preload_fonts: Default::default(),
-            inline_fonts: Default::default(),
         }
     }
 }
@@ -250,7 +324,10 @@ impl Critters {
         });
 
         // serialize stylesheet
-        let css = ast.to_css(Default::default())?;
+        let css = ast.to_css(PrinterOptions {
+            minify: self.options.compress,
+            ..Default::default()
+        })?;
         // remove all existing text from style node
         style_node.children().for_each(|c| c.detach());
         style_node.append(NodeRef::new_text(css.code));
