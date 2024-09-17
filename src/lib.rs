@@ -14,7 +14,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
 use std::{default, path};
-use utils::StyleRuleExt;
+use utils::{NodeRefExt, StyleRuleExt};
 
 mod utils;
 
@@ -288,13 +288,20 @@ impl Critters {
                 critical_keyframe_names.contains(&kf_name.to_string())
             }
             CssRule::FontFace(f) => {
-                let mut src = None;
+                let href_regex =
+                    fancy_regex::Regex::new(r#"url\s*\(\s*(['"]?)(.+?)\1\s*\)"#).unwrap();
+                let mut href = None;
                 let mut family = None;
 
                 for p in &f.properties {
                     match p {
                         FontFaceProperty::Source(s) => {
-                            src = Some(s.to_css_string(Default::default()).unwrap())
+                            let src = s.to_css_string(Default::default()).unwrap();
+                            href = href_regex
+                                .captures(&src)
+                                .unwrap()
+                                .map(|m| m.get(2).map(|c| c.as_str().to_string()))
+                                .flatten();
                         }
                         FontFaceProperty::FontFamily(f) => {
                             family = Some(f.to_css_string(Default::default()).unwrap())
@@ -304,28 +311,20 @@ impl Critters {
                 }
 
                 // add preload directive to head
-                if src.is_some()
+                if href.is_some()
                     && self.options.preload_fonts
-                    && !preloaded_fonts.contains(src.as_ref().unwrap())
+                    && !preloaded_fonts.contains(href.as_ref().unwrap())
                 {
-                    let src = src.clone().unwrap();
-                    preloaded_fonts.insert(src);
-                    let head = dom.select_first("head").unwrap();
-                    head.as_node().append(NodeRef::new_element(
-                        QualName::new(None, ns!(html), local_name!("link")),
-                        vec![(
-                            kuchikiki::ExpandedName::new(ns!(html), "rel"),
-                            kuchikiki::Attribute {
-                                prefix: None,
-                                value: "".into(),
-                            },
-                        )],
-                    ))
+                    let href = href.clone().unwrap();
+                    if let Err(e) = self.inject_font_preload(&href, &dom) {
+                        warn!("Failed to inject font preload directive. {e}");
+                    }
+                    preloaded_fonts.insert(href);
                 }
 
                 self.options.inline_fonts
                     && family.is_some()
-                    && src.as_ref().is_some()
+                    && href.as_ref().is_some()
                     && critical_fonts.contains(&family.unwrap())
             }
             _ => true,
@@ -341,11 +340,7 @@ impl Critters {
     }
 
     /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
-    fn process_style_el(
-        &self,
-        style: NodeRef,
-        dom: NodeRef,
-    ) -> anyhow::Result<()> {
+    fn process_style_el(&self, style: NodeRef, dom: NodeRef) -> anyhow::Result<()> {
         let style_child = match style.children().nth(0) {
             Some(c) => c,
             // skip empty stylesheets
@@ -443,6 +438,25 @@ impl Critters {
 
         Ok(style_node)
     }
+
+    /// Injects a preload directive into the head for the given font URL.
+    fn inject_font_preload(&self, font: &str, dom: &NodeRef) -> anyhow::Result<()> {
+        let head = dom
+            .select_first("head")
+            .map_err(|_| anyhow::Error::msg("Failed to locate <head> element in DOM."))?;
+
+        head.as_node().append(NodeRef::new_html_element(
+            "link",
+            vec![
+                ("rel", "preload"),
+                ("as", "font"),
+                ("crossorigin", "anonymous"),
+                ("href", font.trim()),
+            ],
+        ));
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -450,6 +464,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
+    use test_log::test;
 
     use super::*;
 
@@ -467,6 +482,20 @@ mod tests {
         </html>
     "#;
 
+    fn construct_html(head: &str, body: &str) -> String {
+        format!(
+            r#"
+            <html>
+                <head>
+                    {head}
+                </head>
+                <body>
+                    {body}
+                </body>
+            </html>
+            "#
+        )
+    }
 
     #[test]
     fn basic() {
@@ -483,11 +512,49 @@ mod tests {
     }
     
     #[test]
+    fn font_preload() {
+        let html = construct_html(
+            r#"<style>
+                @font-face {
+                  font-family: "Trickster";
+                  src:
+                    local("Trickster"),
+                    url("trickster-COLRv1.otf") format("opentype") tech(color-COLRv1),
+                    url("trickster-outline.otf") format("opentype"),
+                    url("trickster-outline.woff") format("woff");
+                }
+            </style>"#,
+            "",
+        );
+        let critters = Critters::new(Default::default());
+
+        let processed = critters.process(&html).unwrap();
+
+        println!("{processed}");
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let preload = dom
+            .select_first("head > link[rel=preload]")
+            .expect("Failed to locate preload link.");
+        let preload_attrs = preload.attributes.borrow();
+        
+        assert_eq!(preload_attrs.get("rel"), Some("preload"));
+        assert_eq!(preload_attrs.get("as"), Some("font"));
+        assert_eq!(preload_attrs.get("crossorigin"), Some("anonymous"));
+        assert_eq!(preload_attrs.get("href"), Some("trickster-COLRv1.otf"));
+    }
+
+    #[test]
     fn additional_stylesheets() {
         let tmp_dir = TempDir::new("dist").unwrap();
         let file_path = tmp_dir.path().join("add.css");
         let mut tmp_file = File::create(file_path).unwrap();
-        writeln!(tmp_file, ".critical {{ background-color: blue; }} .non-critical {{ background-color: red; }}").unwrap();
+        writeln!(
+            tmp_file,
+            ".critical {{ background-color: blue; }} .non-critical {{ background-color: red; }}"
+        )
+        .unwrap();
 
         let critters = Critters::new(CrittersOptions {
             path: tmp_dir.path().to_str().unwrap().to_string(),
@@ -499,7 +566,11 @@ mod tests {
 
         let parser = kuchikiki::parse_html();
         let dom = parser.one(processed);
-        let stylesheets: Vec<_> = dom.select("style").unwrap().map(|s| s.text_contents()).collect();
+        let stylesheets: Vec<_> = dom
+            .select("style")
+            .unwrap()
+            .map(|s| s.text_contents())
+            .collect();
         
         assert_eq!(stylesheets.len(), 2);
         assert!(stylesheets[0].contains(".critical{color:red}"));
