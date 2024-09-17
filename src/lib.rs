@@ -447,11 +447,13 @@ impl Critters {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Write;
+    use tempdir::TempDir;
+
     use super::*;
 
-    #[test]
-    fn basic_test() {
-        let html = r#"
+    const BASIC_HTML: &'static str = r#"
         <html>
             <head>
                 <style>
@@ -465,9 +467,12 @@ mod tests {
         </html>
     "#;
 
+
+    #[test]
+    fn basic() {
         let critters = Critters::new(Default::default());
 
-        let processed = critters.process(html).unwrap();
+        let processed = critters.process(BASIC_HTML).unwrap();
         
         let parser = kuchikiki::parse_html();
         let dom = parser.one(processed);
@@ -475,5 +480,31 @@ mod tests {
         
         assert!(stylesheet.contains(".critical"));
         assert!(!stylesheet.contains(".non-critical"));
+    }
+    
+    #[test]
+    fn additional_stylesheets() {
+        let tmp_dir = TempDir::new("dist").unwrap();
+        let file_path = tmp_dir.path().join("add.css");
+        let mut tmp_file = File::create(file_path).unwrap();
+        writeln!(tmp_file, ".critical {{ background-color: blue; }} .non-critical {{ background-color: red; }}").unwrap();
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir.path().to_str().unwrap().to_string(),
+            additional_stylesheets: vec!["add.css".to_string()],
+            ..Default::default()
+        });
+
+        let processed = critters.process(BASIC_HTML).unwrap();
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheets: Vec<_> = dom.select("style").unwrap().map(|s| s.text_contents()).collect();
+        
+        assert_eq!(stylesheets.len(), 2);
+        assert!(stylesheets[0].contains(".critical{color:red}"));
+        assert!(!stylesheets[0].contains(".non-critical"));
+        assert!(stylesheets[1].contains(".critical{background-color"));
+        assert!(!stylesheets[1].contains(".non-critical"));
     }
 }
