@@ -9,7 +9,6 @@ use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
 use log::warn;
-use markup5ever::{local_name, namespace_url, ns, QualName};
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
@@ -430,8 +429,7 @@ impl Critters {
         let head = dom
             .select_first("head")
             .map_err(|_| anyhow::Error::msg("Failed to locate <head> element in DOM."))?;
-        let style_node =
-            NodeRef::new_element(QualName::new(None, ns!(html), local_name!("style")), []);
+        let style_node = NodeRef::new_html_element("style", vec![]);
 
         style_node.append(NodeRef::new_text(sheet));
         head.as_node().append(style_node.clone());
