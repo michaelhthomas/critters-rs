@@ -144,7 +144,7 @@ impl Critters {
 
         // Extract and inline critical CSS
         for style in styles {
-            let res = self.process_style(style, dom.clone());
+            let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
                 warn!("Error encountered when processing stylesheet. {}", err);
@@ -158,29 +158,8 @@ impl Critters {
     }
 
     /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
-    fn process_style<'a>(
-        &self,
-        style: NodeDataRef<ElementData>,
-        dom: NodeRef,
-    ) -> anyhow::Result<()> {
-        let style_node = style.as_node();
-        let style_child = match style_node.children().nth(0) {
-            Some(c) => c,
-            // skip empty stylesheets
-            None => return Ok(()),
-        };
-        let style_data = style_child.data();
-
-        let sheet = match style_data {
-            NodeData::Text(t) => t.borrow().to_string(),
-            _ => return Err(anyhow::Error::msg("Invalid style tag")),
-        };
-
-        // skip empty stylesheets
-        if sheet.is_empty() {
-            return Ok(());
-        }
-
+    fn process_style(&self, sheet: &str, dom: NodeRef) -> anyhow::Result<String> {
+        // TODO: support container element
         let critters_container = dom.select_first("body").unwrap();
         let mut failed_selectors = Vec::new();
         let mut rules_to_remove = HashSet::new();
@@ -319,9 +298,34 @@ impl Critters {
             minify: self.options.compress,
             ..Default::default()
         })?;
+
+        Ok(css.code)
+    }
+    
+    fn process_style_el(&self, style: NodeDataRef<ElementData>, dom: NodeRef) -> anyhow::Result<()> {
+        let style_node = style.as_node();
+        let style_child = match style_node.children().nth(0) {
+            Some(c) => c,
+            // skip empty stylesheets
+            None => return Ok(()),
+        };
+        let style_data = style_child.data();
+
+        let sheet = match style_data {
+            NodeData::Text(t) => t.borrow().to_string(),
+            _ => return Err(anyhow::Error::msg("Invalid style tag")),
+        };
+
+        // skip empty stylesheets
+        if sheet.is_empty() {
+            return Ok(());
+        }
+        
+        let css = self.process_style(&sheet, dom)?;
+
         // remove all existing text from style node
         style_node.children().for_each(|c| c.detach());
-        style_node.append(NodeRef::new_text(css.code));
+        style_node.append(NodeRef::new_text(css));
 
         Ok(())
     }
