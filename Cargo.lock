@@ -160,6 +160,7 @@ name = "critters-rs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "itertools 0.13.0",
  "kuchikiki",
  "lightningcss",
  "log",
@@ -399,6 +400,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -449,7 +459,7 @@ dependencies = [
  "dashmap",
  "data-encoding",
  "getrandom 0.2.15",
- "itertools",
+ "itertools 0.10.5",
  "lazy_static",
  "lightningcss-derive",
  "parcel_selectors",

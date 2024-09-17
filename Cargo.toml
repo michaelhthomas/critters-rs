@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.89"
+itertools = "0.13.0"
 kuchikiki = "0.8.2"
 lightningcss = "1.0.0-alpha.59"
 log = "0.4.22"

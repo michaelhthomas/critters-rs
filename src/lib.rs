@@ -1,5 +1,6 @@
+use itertools::Itertools;
 use kuchikiki::traits::TendrilSink;
-use kuchikiki::{ElementData, NodeData, NodeDataRef, NodeRef};
+use kuchikiki::{NodeData, NodeRef};
 use lightningcss::printer::PrinterOptions;
 use lightningcss::properties::PropertyId;
 use lightningcss::rules::{font_face::FontFaceProperty, keyframes::KeyframesName, CssRule};
@@ -11,9 +12,8 @@ use log::warn;
 use markup5ever::{local_name, namespace_url, ns, QualName};
 use regex::Regex;
 use std::collections::HashSet;
-use std::default;
 use std::fs;
-use std::path::PathBuf;
+use std::{default, path};
 use utils::StyleRuleExt;
 
 mod utils;
@@ -132,22 +132,29 @@ impl Critters {
         let parser = kuchikiki::parse_html();
         let dom = parser.one(html);
 
-        // TODO: handle external stylesheets
-        let external_sheets: Vec<NodeDataRef<ElementData>> = dom
-            .select("link[rel=\"stylesheet\"]")
-            .map_err(|_| anyhow::Error::msg("Failed to select"))?
-            .collect();
-        println!("{:?}", external_sheets);
+        let mut styles = Vec::new();
 
-        // Locate inline stylesheets
-        let styles: Vec<NodeDataRef<ElementData>> = dom.select("style").unwrap().collect();
+        // Inline styles
+        if self.options.reduce_inline_styles {
+            styles.append(&mut self.get_inline_stylesheets(&dom));
+        }
 
+        // External stylesheets
+        if self.options.external {
+            styles.append(&mut self.get_external_stylesheets(&dom)?);
+        }
+
+        // Additional stylesheets
+        if self.options.additional_stylesheets.len() > 0 {
+            styles.append(&mut self.get_additional_stylesheets(&dom)?);
+        }
+        
         // Extract and inline critical CSS
         for style in styles {
             let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
-                warn!("Error encountered when processing stylesheet. {}", err);
+                warn!("Error encountered when processing stylesheet, skipping. {}", err);
             }
         }
 
@@ -157,7 +164,38 @@ impl Critters {
         return Ok(String::from_utf8(result)?);
     }
 
-    /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
+    /// Gets inline styles from the document.
+    fn get_inline_stylesheets(&self, dom: &NodeRef) -> Vec<NodeRef> {
+       dom.select("style").unwrap().map(|n| n.as_node().clone()).collect()
+    }
+
+    /// Resolve links to external stylesheets, inlining them and replacing the link with a preload strategy.
+    fn get_external_stylesheets(&self, dom: &NodeRef) -> anyhow::Result<Vec<NodeRef>> {
+        let external_sheets: Vec<_> = dom
+            .select("link[rel=\"stylesheet\"]")
+            .unwrap()
+            .collect();
+        println!("{:?}", external_sheets);
+        
+        // TODO: actual
+        
+        Ok(Vec::new())
+    }
+
+    /// Resolve styles for the provided additional stylesheets, if any, and append them to the head.
+    fn get_additional_stylesheets(&self, dom: &NodeRef) -> anyhow::Result<Vec<NodeRef>> {
+        self.options
+            .additional_stylesheets
+            .iter()
+            .sorted()
+            .dedup()
+            .map(|href| self.get_css_asset(href))
+            .flatten()
+            .map(|css| self.inject_style(&css, dom))
+            .collect()
+    }
+
+    /// Parse the given stylesheet and reduce it to contain only the nodes present in the given document.
     fn process_style(&self, sheet: &str, dom: NodeRef) -> anyhow::Result<String> {
         // TODO: support container element
         let critters_container = dom.select_first("body").unwrap();
@@ -301,10 +339,14 @@ impl Critters {
 
         Ok(css.code)
     }
-    
-    fn process_style_el(&self, style: NodeDataRef<ElementData>, dom: NodeRef) -> anyhow::Result<()> {
-        let style_node = style.as_node();
-        let style_child = match style_node.children().nth(0) {
+
+    /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
+    fn process_style_el(
+        &self,
+        style: NodeRef,
+        dom: NodeRef,
+    ) -> anyhow::Result<()> {
+        let style_child = match style.children().nth(0) {
             Some(c) => c,
             // skip empty stylesheets
             None => return Ok(()),
@@ -320,14 +362,86 @@ impl Critters {
         if sheet.is_empty() {
             return Ok(());
         }
-        
+
         let css = self.process_style(&sheet, dom)?;
 
         // remove all existing text from style node
-        style_node.children().for_each(|c| c.detach());
-        style_node.append(NodeRef::new_text(css));
+        style.children().for_each(|c| c.detach());
+        style.append(NodeRef::new_text(css));
 
         Ok(())
+    }
+
+    /// Given href, find the corresponding CSS asset
+    fn get_css_asset(&self, href: &str) -> Option<String> {
+        let output_path = &self.options.path;
+        let public_path = &self.options.public_path;
+
+        // CHECK - the output path
+        // path on disk (with output.publicPath removed)
+        let mut normalized_path = href.strip_prefix("/").unwrap_or(href);
+        let path_prefix = Regex::new(r"/(^\/|\/$)/")
+            .unwrap()
+            .replace_all(public_path, "")
+            + "/";
+
+        if normalized_path.starts_with(&*path_prefix) {
+            normalized_path = normalized_path
+                .strip_prefix(&*path_prefix)
+                .unwrap_or(normalized_path);
+            normalized_path = normalized_path.strip_prefix("/").unwrap_or(normalized_path);
+        }
+
+        // Ignore remote stylesheets
+        if Regex::new(r"/^https?:\/\//")
+            .unwrap()
+            .is_match(normalized_path)
+            || href.starts_with("//")
+        {
+            return None;
+        }
+
+        let filename = match path::absolute(path::Path::new(output_path).join(normalized_path)) {
+            Ok(path) => path,
+            Err(e) => {
+                warn!(
+                    "Failed to resolve path with output path {} and href {}. {e}",
+                    output_path, normalized_path
+                );
+                return None;
+            }
+        };
+
+        // Check if the resolved path is valid
+        if !filename.starts_with(output_path) {
+            warn!("Matched stylesheet with path \"{}\", which is not within the configured output path.", filename.display());
+            return None;
+        }
+
+        match fs::read_to_string(filename.clone()) {
+            Ok(sheet) => Some(sheet),
+            Err(e) => {
+                warn!(
+                    "Loading stylesheet at path \"{}\" failed. {e}",
+                    filename.display()
+                );
+                None
+            }
+        }
+    }
+
+    /// Inject the given CSS stylesheet as a new <style> tag in the DOM
+    fn inject_style(&self, sheet: &str, dom: &NodeRef) -> anyhow::Result<NodeRef> {
+        let head = dom
+            .select_first("head")
+            .map_err(|_| anyhow::Error::msg("Failed to locate <head> element in DOM."))?;
+        let style_node =
+            NodeRef::new_element(QualName::new(None, ns!(html), local_name!("style")), []);
+
+        style_node.append(NodeRef::new_text(sheet));
+        head.as_node().append(style_node.clone());
+
+        Ok(style_node)
     }
 }
 
