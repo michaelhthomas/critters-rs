@@ -140,20 +140,23 @@ impl Critters {
 
         // External stylesheets
         if self.options.external {
-            styles.append(&mut self.get_external_stylesheets(&dom)?);
+            styles.append(&mut self.get_external_stylesheets(&dom));
         }
 
         // Additional stylesheets
         if self.options.additional_stylesheets.len() > 0 {
             styles.append(&mut self.get_additional_stylesheets(&dom)?);
         }
-        
+
         // Extract and inline critical CSS
         for style in styles {
             let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
-                warn!("Error encountered when processing stylesheet, skipping. {}", err);
+                warn!(
+                    "Error encountered when processing stylesheet, skipping. {}",
+                    err
+                );
             }
         }
 
@@ -165,20 +168,27 @@ impl Critters {
 
     /// Gets inline styles from the document.
     fn get_inline_stylesheets(&self, dom: &NodeRef) -> Vec<NodeRef> {
-       dom.select("style").unwrap().map(|n| n.as_node().clone()).collect()
+        dom.select("style")
+            .unwrap()
+            .map(|n| n.as_node().clone())
+            .collect()
     }
 
     /// Resolve links to external stylesheets, inlining them and replacing the link with a preload strategy.
-    fn get_external_stylesheets(&self, dom: &NodeRef) -> anyhow::Result<Vec<NodeRef>> {
-        let external_sheets: Vec<_> = dom
-            .select("link[rel=\"stylesheet\"]")
-            .unwrap()
-            .collect();
-        println!("{:?}", external_sheets);
-        
-        // TODO: actual
-        
-        Ok(Vec::new())
+    fn get_external_stylesheets(&self, dom: &NodeRef) -> Vec<NodeRef> {
+        let external_sheets: Vec<_> = dom.select("link[rel=\"stylesheet\"]").unwrap().collect();
+
+        external_sheets
+            .iter()
+            .map(|link| {
+                self.inline_external_stylesheet(link.as_node(), dom)
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to inline external stylesheet. {e}");
+                        None
+                    })
+            })
+            .flatten()
+            .collect()
     }
 
     /// Resolve styles for the provided additional stylesheets, if any, and append them to the head.
@@ -424,6 +434,67 @@ impl Critters {
         }
     }
 
+    /// Inline the provided stylesheet link, provided it matches the filtering options. Add preload markers for the external stylesheet as necessary.
+    fn inline_external_stylesheet(
+        &self,
+        link: &NodeRef,
+        dom: &NodeRef,
+    ) -> anyhow::Result<Option<NodeRef>> {
+        let link_el = link.as_element().unwrap();
+        let link_attrs = link_el.attributes.borrow();
+        let href = match link_attrs.get("href") {
+            Some(v) if v.ends_with(".css") => v.to_owned(),
+            _ => return Ok(None),
+        };
+        drop(link_attrs);
+
+        let sheet = match self.get_css_asset(&href) {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        let style = NodeRef::new_html_element("style", vec![]);
+        style.append(NodeRef::new_text(sheet));
+        link.insert_before(style.clone());
+
+        // TODO: inline threshold?
+
+        let body = dom
+            .select_first("body")
+            .map_err(|_| anyhow::Error::msg("Failed to locate document body"))?;
+
+        let update_link_to_preload = || {
+            let mut link_attrs = link_el.attributes.borrow_mut();
+            link_attrs.insert("rel", "preload".to_string());
+            link_attrs.insert("as", "style".to_string());
+        };
+
+        // TODO: Implement other branches, removing those deemed unnecessary
+        match self.options.preload {
+            PreloadStrategy::BodyPreload => {
+                // create new identical link
+                let body_link = NodeRef::new(link.data().clone());
+
+                // If an ID is present, remove it to avoid collisions.
+                let mut body_link_attrs = body_link.as_element().unwrap().attributes.borrow_mut();
+                body_link_attrs.remove("id");
+                drop(body_link_attrs);
+
+                body.as_node().append(body_link);
+
+                update_link_to_preload();
+            }
+            PreloadStrategy::Body => body.as_node().append(link.clone()),
+            PreloadStrategy::Media => todo!(),
+            PreloadStrategy::Swap => todo!(),
+            PreloadStrategy::SwapHigh => todo!(),
+            PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
+            PreloadStrategy::None => todo!(),
+        };
+
+        Ok(Some(style))
+    }
+
     /// Inject the given CSS stylesheet as a new <style> tag in the DOM
     fn inject_style(&self, sheet: &str, dom: &NodeRef) -> anyhow::Result<NodeRef> {
         let head = dom
@@ -466,6 +537,11 @@ mod tests {
 
     use super::*;
 
+    const BASIC_CSS: &'static str = r#"
+        .critical { color: red; }
+        .non-critical { color: blue; }
+    "#;
+
     const BASIC_HTML: &'static str = r#"
         <html>
             <head>
@@ -495,20 +571,35 @@ mod tests {
         )
     }
 
+    /// Given a dictionary of paths and file contents, construct a temporary directory structure.
+    ///
+    /// Returns the path to the created temporary folder.
+    fn create_test_folder(files: &[(&str, &str)]) -> String {
+        let tmp_dir = TempDir::new("dist").expect("Failed to create temporary directory");
+
+        for (path, contents) in files {
+            let file_path = tmp_dir.path().join(path);
+            let mut tmp_file = File::create(file_path).unwrap();
+            writeln!(tmp_file, "{}", contents).unwrap();
+        }
+
+        tmp_dir.into_path().to_string_lossy().to_string()
+    }
+
     #[test]
     fn basic() {
         let critters = Critters::new(Default::default());
 
         let processed = critters.process(BASIC_HTML).unwrap();
-        
+
         let parser = kuchikiki::parse_html();
         let dom = parser.one(processed);
         let stylesheet = dom.select_first("style").unwrap().text_contents();
-        
+
         assert!(stylesheet.contains(".critical"));
         assert!(!stylesheet.contains(".non-critical"));
     }
-    
+
     #[test]
     fn font_preload() {
         let html = construct_html(
@@ -528,15 +619,13 @@ mod tests {
 
         let processed = critters.process(&html).unwrap();
 
-        println!("{processed}");
-
         let parser = kuchikiki::parse_html();
         let dom = parser.one(processed);
         let preload = dom
             .select_first("head > link[rel=preload]")
             .expect("Failed to locate preload link.");
         let preload_attrs = preload.attributes.borrow();
-        
+
         assert_eq!(preload_attrs.get("rel"), Some("preload"));
         assert_eq!(preload_attrs.get("as"), Some("font"));
         assert_eq!(preload_attrs.get("crossorigin"), Some("anonymous"));
@@ -544,18 +633,66 @@ mod tests {
     }
 
     #[test]
-    fn additional_stylesheets() {
-        let tmp_dir = TempDir::new("dist").unwrap();
-        let file_path = tmp_dir.path().join("add.css");
-        let mut tmp_file = File::create(file_path).unwrap();
-        writeln!(
-            tmp_file,
-            ".critical {{ background-color: blue; }} .non-critical {{ background-color: red; }}"
-        )
-        .unwrap();
+    fn external_stylesheet() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
 
         let critters = Critters::new(CrittersOptions {
-            path: tmp_dir.path().to_str().unwrap().to_string(),
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::BodyPreload,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+
+        let preload_link = dom
+            .select_first("head > link[rel=preload]")
+            .expect("Failed to locate preload link.");
+        assert_eq!(
+            preload_link.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+        assert_eq!(preload_link.attributes.borrow().get("as"), Some("style"));
+
+        let stylesheet = dom
+            .select_first("style")
+            .expect("Failed to locate inline stylesheet")
+            .text_contents();
+        assert!(stylesheet.contains(".critical"));
+        assert!(!stylesheet.contains(".non-critical"));
+
+        let stylesheet_link = dom
+            .select_first("body > link[rel=stylesheet]:last-child")
+            .expect("Failed to locate external stylesheet link.");
+        assert_eq!(
+            stylesheet_link.attributes.borrow().get("rel"),
+            Some("stylesheet")
+        );
+        assert_eq!(
+            stylesheet_link.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+    }
+
+    #[test]
+    fn additional_stylesheets() {
+        let tmp_dir = create_test_folder(&[(
+            "add.css",
+            ".critical { background-color: blue; } .non-critical { background-color: red; }",
+        )]);
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
             additional_stylesheets: vec!["add.css".to_string()],
             ..Default::default()
         });
@@ -569,7 +706,7 @@ mod tests {
             .unwrap()
             .map(|s| s.text_contents())
             .collect();
-        
+
         assert_eq!(stylesheets.len(), 2);
         assert!(stylesheets[0].contains(".critical{color:red}"));
         assert!(!stylesheets[0].contains(".non-critical"));
