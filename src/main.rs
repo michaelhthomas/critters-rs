@@ -2,6 +2,8 @@ use std::{fs, path::PathBuf, time::Instant};
 
 use clap::Parser;
 use critters_rs::{Critters, CrittersOptions};
+use log::warn;
+use rayon::prelude::*;
 use walkdir::WalkDir;
 
 #[derive(Parser, Debug)]
@@ -38,21 +40,27 @@ fn main() -> anyhow::Result<()> {
     let critters = Critters::new(args.options);
     let files = locate_html_files(&base_path)?;
 
-    for path in files {
+    files.par_iter().for_each(|path| {
         let start = Instant::now();
 
-        let html = fs::read_to_string(path.clone())?;
-        let processed = critters.process(&html)?;
-        fs::write(path.clone(), processed)?;
+        let html = fs::read_to_string(path.clone()).expect("Failed to load HTML file from disk.");
+        let processed = match critters.process(&html) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("Failed to process file {} with error {e}", path.display());
+                return;
+            }
+        };
+        fs::write(path.clone(), processed).expect("Failed to write HTML file to disk.");
 
         let duration = start.elapsed();
 
         println!(
             "Processed {} in {} ms",
-            path.strip_prefix(&base_path)?.display(),
+            path.strip_prefix(&base_path).unwrap().display(),
             duration.as_millis()
         );
-    }
+    });
 
     Ok(())
 }

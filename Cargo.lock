@@ -277,6 +277,7 @@ dependencies = [
  "lightningcss",
  "log",
  "markup5ever",
+ "rayon",
  "regex",
  "tempdir",
  "test-log",
