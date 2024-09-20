@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf, time::Instant};
 
 use clap::Parser;
 use critters_rs::{Critters, CrittersOptions};
-use log::warn;
+use log::{info, warn};
 use rayon::prelude::*;
 use walkdir::WalkDir;
 
@@ -33,6 +33,8 @@ fn locate_html_files(path: &str) -> anyhow::Result<Vec<PathBuf>> {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
+
     let args = Args::parse();
 
     let base_path = args.options.path.clone();
@@ -55,7 +57,7 @@ fn main() -> anyhow::Result<()> {
 
         let duration = start.elapsed();
 
-        println!(
+        info!(
             "Processed {} in {} ms",
             path.strip_prefix(&base_path).unwrap().display(),
             duration.as_millis()

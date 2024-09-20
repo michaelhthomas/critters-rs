@@ -8,7 +8,7 @@ use lightningcss::selector::SelectorList;
 use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
-use log::warn;
+use log::error;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
@@ -132,6 +132,7 @@ impl default::Default for CrittersOptions {
     }
 }
 
+#[derive(Clone)]
 pub struct Critters {
     options: CrittersOptions,
 }
@@ -169,11 +170,16 @@ impl Critters {
             let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
-                warn!(
+                error!(
                     "Error encountered when processing stylesheet, skipping. {}",
                     err
                 );
             }
+        }
+
+        // Merge stylesheets
+        if self.options.merge_stylesheets {
+            // TODO: merge stylesheets
         }
 
         // Serialize back to an HTML string
@@ -199,7 +205,7 @@ impl Critters {
             .map(|link| {
                 self.inline_external_stylesheet(link.as_node(), dom)
                     .unwrap_or_else(|e| {
-                        warn!("Failed to inline external stylesheet. {e}");
+                        error!("Failed to inline external stylesheet. {e}");
                         None
                     })
             })
@@ -342,7 +348,7 @@ impl Critters {
                 {
                     let href = href.clone().unwrap();
                     if let Err(e) = self.inject_font_preload(&href, &dom) {
-                        warn!("Failed to inject font preload directive. {e}");
+                        error!("Failed to inject font preload directive. {e}");
                     }
                     preloaded_fonts.insert(href);
                 }
@@ -424,7 +430,7 @@ impl Critters {
         let filename = match path::absolute(path::Path::new(output_path).join(normalized_path)) {
             Ok(path) => path,
             Err(e) => {
-                warn!(
+                error!(
                     "Failed to resolve path with output path {} and href {}. {e}",
                     output_path, normalized_path
                 );
@@ -434,14 +440,14 @@ impl Critters {
 
         // Check if the resolved path is valid
         if !filename.starts_with(output_path) {
-            warn!("Matched stylesheet with path \"{}\", which is not within the configured output path.", filename.display());
+            error!("Matched stylesheet with path \"{}\", which is not within the configured output path.", filename.display());
             return None;
         }
 
         match fs::read_to_string(filename.clone()) {
             Ok(sheet) => Some(sheet),
             Err(e) => {
-                warn!(
+                error!(
                     "Loading stylesheet at path \"{}\" failed. {e}",
                     filename.display()
                 );
