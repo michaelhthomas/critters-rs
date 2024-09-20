@@ -17,7 +17,7 @@ use utils::{NodeRefExt, StyleRuleExt};
 
 mod utils;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
 pub enum PreloadStrategy {
     /// Move stylesheet links to the end of the document and insert preload meta tags in their place.
     #[default]
@@ -38,7 +38,7 @@ pub enum PreloadStrategy {
     None,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
 pub enum KeyframesStrategy {
     /// Inline keyframes rules used by the critical CSS
     #[default]
@@ -49,47 +49,63 @@ pub enum KeyframesStrategy {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SelectorMatcher {
     String(String),
     Regex(Regex),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, clap::Args)]
 pub struct CrittersOptions {
     /// Base path location of the CSS files
+    #[clap(short, long)]
     pub path: String,
     /// Public path of the CSS resources. This prefix is removed from the href.
+    #[clap(long, default_value_t)]
     pub public_path: String,
     /// Inline styles from external stylesheets
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub external: bool,
     /// Inline stylesheets smaller than a given size.
+    #[clap(long, default_value_t)]
     pub inline_threshold: usize,
     /// If the non-critical external stylesheet would be below this size, just inline it
+    #[clap(long, default_value_t)]
     pub minimum_external_size: usize,
     /// Remove inlined rules from the external stylesheet
+    #[clap(long)]
     pub prune_source: bool,
     /// Merged inlined stylesheets into a single `<style>` tag
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub merge_stylesheets: bool,
     /// Glob for matching other stylesheets to be used while looking for critical CSS.
+    #[clap(long)]
     pub additional_stylesheets: Vec<String>,
     /// Option indicates if inline styles should be evaluated for critical CSS. By default
     /// inline style tags will be evaluated and rewritten to only contain critical CSS.
     /// Set it to false to skip processing inline styles.
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub reduce_inline_styles: bool,
     /// Which preload strategy to use.
+    #[clap(long, default_value = "body-preload")]
     pub preload: PreloadStrategy,
     /// Add <noscript> fallback to JS-based strategies.
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub noscript_fallback: bool,
     /// Inline critical font-face rules.
+    #[clap(long)]
     pub inline_fonts: bool,
-    /// Preloads critical fonts (default: true)
+    /// Preloads critical fonts
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub preload_fonts: bool,
     /// Controls which keyframes rules are inlined.
+    #[clap(long, default_value = "critical")]
     pub keyframes: KeyframesStrategy,
     /// Compress resulting critical CSS
+    #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub compress: bool,
     /// Provide a list of selectors that should be included in the critical CSS.
+    #[clap(skip)]
     pub allow_rules: Vec<SelectorMatcher>,
 }
 
