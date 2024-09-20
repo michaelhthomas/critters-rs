@@ -1,20 +1,33 @@
 use kuchikiki::NodeRef;
 use lightningcss::rules::style::StyleRule;
 
-/// Cantor's pairing function. Generates a unique integer from a pair of two integers.
-pub fn cantor(a: u32, b: u32) -> u32 {
-    (a + b + 1) * (a + b) / 2 + b
+/// Implementation of the Szudzik pairing function.
+///
+/// A pairing function is a bijection from N x N -> N. Szudizik's algorithm
+/// has the most efficient possible value packing, with the maximum pair size
+/// being (sqrt(MAX_INTEGER), sqrt(MAX_INTEGER)).
+///
+/// [Reference](http://www.szudzik.com/ElegantPairing.pdf)
+pub fn szudzik_pair(x: impl Into<u64>, y: impl Into<u64>) -> u64 {
+    let x: u64 = x.into();
+    let y: u64 = y.into();
+
+    if x >= y {
+        (x * x) + x + y
+    } else {
+        (y * y) + x
+    }
 }
 
 pub trait StyleRuleExt {
     /// Generates a unique identifier that can be used to identify the rule in later passes of the AST.
-    fn id(&self) -> u32;
+    fn id(&self) -> u64;
 }
 impl StyleRuleExt for StyleRule<'_> {
-    fn id(&self) -> u32 {
-        cantor(
+    fn id(&self) -> u64 {
+        szudzik_pair(
             self.loc.source_index,
-            cantor(self.loc.line, self.loc.column),
+            szudzik_pair(self.loc.line, self.loc.column),
         )
     }
 }
@@ -24,10 +37,9 @@ pub trait NodeRefExt {
     fn new_html_element(name: &str, attributes: Vec<(&str, &str)>) -> NodeRef;
 }
 impl NodeRefExt for NodeRef {
-    fn new_html_element(name: &str, attributes: Vec<(&str, &str)>) -> NodeRef
-    {
+    fn new_html_element(name: &str, attributes: Vec<(&str, &str)>) -> NodeRef {
         use kuchikiki::{Attribute, ExpandedName};
-        use markup5ever::{ns, namespace_url, LocalName, QualName};
+        use markup5ever::{namespace_url, ns, LocalName, QualName};
 
         NodeRef::new_element(
             QualName::new(None, ns!(html), LocalName::from(name)),
