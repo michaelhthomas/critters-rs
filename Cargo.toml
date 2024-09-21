@@ -9,6 +9,8 @@ anyhow = "1.0.89"
 clap = { version = "4.5.17", features = ["derive"] }
 env_logger = "0.11.5"
 fancy-regex = "0.13.0"
+indicatif = { version = "0.17.8", features = ["rayon"] }
+indicatif-log-bridge = "0.2.3"
 itertools = "0.13.0"
 kuchikiki = "0.8.2"
 lightningcss = "1.0.0-alpha.59"
