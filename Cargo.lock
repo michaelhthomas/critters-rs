@@ -225,6 +225,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "critters-rs",
+ "env_logger",
+ "indicatif",
+ "indicatif-log-bridge",
+ "log",
+ "rayon",
+ "walkdir",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -284,20 +299,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "env_logger",
  "fancy-regex",
- "indicatif",
- "indicatif-log-bridge",
  "itertools 0.13.0",
  "kuchikiki",
  "lightningcss",
  "log",
  "markup5ever",
- "rayon",
  "regex",
  "tempdir",
  "test-log",
- "walkdir",
 ]
 
 [[package]]

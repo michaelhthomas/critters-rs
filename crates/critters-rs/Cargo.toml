@@ -1,0 +1,18 @@
+[package]
+name = "critters-rs"
+description = "Quickly inline your website's critical CSS."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.89"
+clap = { version = "4.5.17", features = ["derive"] }
+fancy-regex = "0.13.0"
+itertools = "0.13.0"
+kuchikiki = "0.8.2"
+lightningcss = "1.0.0-alpha.59"
+log = "0.4.22"
+markup5ever = "0.11.0"
+regex = "1.10.6"
+tempdir = "0.3.7"
+test-log = "0.2.16"
