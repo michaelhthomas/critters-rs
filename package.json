@@ -1,0 +1,15 @@
+{
+  "name": "critters-rs",
+  "version": "0.1.0",
+  "description": "Quickly inline your website's critical CSS.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["css", "critical-css", "performance"],
+  "author": "Michael Thomas",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@8.7.6+sha512.649fcba43cbe20662908f628d8835f9f0d8ca2950e4c74371dc9e16e24aa54bb55e6b4e6b2b6c51dee22df92132e9720bc85a9b566f351367c79f0d85d6a457b",
+  "devDependencies": {
+    "@moonrepo/cli": "^1.28.3"
+  }
+}

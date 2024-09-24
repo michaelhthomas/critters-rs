@@ -1,0 +1,11 @@
+language: 'rust'
+
+tasks:
+  build:
+    command: 'wasm-pack build --target nodejs --out-dir ../../packages/critters-rs'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - '/Cargo.toml'
+    outputs:
+      - '/packages/critters-rs'
