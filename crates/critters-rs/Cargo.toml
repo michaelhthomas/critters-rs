@@ -4,6 +4,9 @@ description = "Quickly inline your website's critical CSS."
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 anyhow = "1.0.89"
 clap = { version = "4.5.17", features = ["derive"] }
@@ -14,5 +17,8 @@ lightningcss = "1.0.0-alpha.59"
 log = "0.4.22"
 markup5ever = "0.11.0"
 regex = "1.10.6"
+serde = "1.0.210"
 tempdir = "0.3.7"
 test-log = "0.2.16"
+tsify-next = { version = "0.5.4", features = ["js"] }
+wasm-bindgen = "0.2.93"

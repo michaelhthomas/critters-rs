@@ -10,14 +10,18 @@ use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
 use log::error;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::{default, path};
+use tsify_next::Tsify;
 use utils::{NodeRefExt, StyleRuleExt};
+use wasm_bindgen::prelude::*;
 
 mod utils;
 
-#[derive(Debug, Clone, Default, clap::ValueEnum)]
+#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
+#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum, Tsify)]
 pub enum PreloadStrategy {
     /// Move stylesheet links to the end of the document and insert preload meta tags in their place.
     #[default]
@@ -38,7 +42,8 @@ pub enum PreloadStrategy {
     None,
 }
 
-#[derive(Debug, Clone, Default, clap::ValueEnum)]
+#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
+#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum, Tsify)]
 pub enum KeyframesStrategy {
     /// Inline keyframes rules used by the critical CSS
     #[default]
@@ -54,8 +59,38 @@ pub enum SelectorMatcher {
     String(String),
     Regex(Regex),
 }
+impl Serialize for SelectorMatcher {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            Self::Regex(r) => r.as_str(),
+            Self::String(s) => &s,
+        })
+    }
+}
+impl<'de> Deserialize<'de> for SelectorMatcher {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
 
-#[derive(Debug, Clone, clap::Args)]
+        if s.starts_with('/') && s.ends_with('/') {
+            Regex::new(&s).map(Self::Regex).map_err(|e| {
+                serde::de::Error::custom(format!("Failed to parse regular expression. {e}"))
+            })
+        } else {
+            Ok(Self::String(s))
+        }
+    }
+}
+
+#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
+#[derive(Debug, Clone, Serialize, Deserialize, clap::Args, Tsify)]
+#[serde(default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct CrittersOptions {
     /// Base path location of the CSS files
     #[clap(short, long)]
@@ -106,6 +141,7 @@ pub struct CrittersOptions {
     pub compress: bool,
     /// Provide a list of selectors that should be included in the critical CSS.
     #[clap(skip)]
+    #[tsify(type = "string[]")]
     pub allow_rules: Vec<SelectorMatcher>,
 }
 
@@ -133,17 +169,34 @@ impl default::Default for CrittersOptions {
 }
 
 #[derive(Clone)]
+#[wasm_bindgen(getter_with_clone)]
 pub struct Critters {
     options: CrittersOptions,
 }
 
+#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
+#[wasm_bindgen]
 impl Critters {
+    #[wasm_bindgen(constructor)]
     pub fn new(options: CrittersOptions) -> Self {
         Critters { options }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn process(&self, html: &str) -> Result<String, JsError> {
+        self.process_impl(html).map_err(|e| JsError::from(&*e))
+    }
+}
+
+impl Critters {
     /// Process the given HTML, extracting and inlining critical CSS
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn process(&self, html: &str) -> anyhow::Result<String> {
+        self.process_impl(html)
+    }
+
+    /// Process the given HTML, extracting and inlining critical CSS
+    fn process_impl(&self, html: &str) -> anyhow::Result<String> {
         // Parse the HTML into a DOM
         let parser = kuchikiki::parse_html();
         let dom = parser.one(html);
