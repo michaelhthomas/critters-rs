@@ -454,6 +454,7 @@ impl Critters {
     /// Given href, find the corresponding CSS asset
     fn get_css_asset(&self, href: &str) -> Option<String> {
         let output_path = &self.options.path;
+        let output_path_absolute = path::absolute(&self.options.path).unwrap();
         let public_path = &self.options.public_path;
 
         // CHECK - the output path
@@ -492,8 +493,12 @@ impl Critters {
         };
 
         // Check if the resolved path is valid
-        if !filename.starts_with(output_path) {
-            error!("Matched stylesheet with path \"{}\", which is not within the configured output path.", filename.display());
+        if !filename.starts_with(&output_path_absolute) {
+            error!(
+                "Matched stylesheet with path \"{}\", which is not within the configured output path \"{}\".",
+                filename.display(),
+                output_path_absolute.display()
+            );
             return None;
         }
 
