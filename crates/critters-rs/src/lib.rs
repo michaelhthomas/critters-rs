@@ -181,6 +181,8 @@ impl Critters {
     #[napi(constructor)]
     pub fn new(options: Option<serde_json::Value>) -> anyhow::Result<Self> {
         use anyhow::anyhow;
+        // try to initialize the logger, ignore error if it has already been initialized
+        env_logger::try_init().ok();
         let options: CrittersOptions = match options {
             Some(options) => serde_json::from_value(options)
                 .map_err(|e| anyhow!("Failed to parse options: {}", e))?,
