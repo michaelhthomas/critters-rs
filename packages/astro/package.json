@@ -1,0 +1,41 @@
+{
+	"name": "@critters-rs/astro",
+	"version": "0.1.0",
+	"description": "Astro integration for critters-rs. Quickly inline your website's critical CSS.",
+	"main": "index.js",
+	"author": "Michael Thomas",
+	"license": "Apache-2.0",
+	"type": "module",
+	"keywords": [
+		"astro-integration",
+		"astro-component",
+		"withastro",
+		"astro",
+		"critical-css"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "moon run dev",
+		"build": "moon run build"
+	},
+	"devDependencies": {
+		"@types/node": "^22.7.4",
+		"astro": "^4.15.9",
+		"tsup": "^8.3.0"
+	},
+	"peerDependencies": {
+		"astro": "^4.15.9"
+	},
+	"dependencies": {
+		"@critters-rs/critters": "workspace:^",
+		"chalk": "^5.3.0"
+	}
+}
