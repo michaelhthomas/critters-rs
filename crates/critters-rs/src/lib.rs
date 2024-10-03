@@ -309,7 +309,7 @@ impl Critters {
         for rule in &mut ast.rules.0 {
             if let CssRule::Style(style_rule) = rule {
                 // TODO: Handle allowed rules
-                let global_pseudo_regex = Regex::new(r"/^::?(before|after)$/").unwrap();
+                let global_pseudo_regex = Regex::new(r"^::?(before|after)$").unwrap();
 
                 // Filter selectors based on their usage in the document
                 let filtered_selectors = style_rule
@@ -473,7 +473,7 @@ impl Critters {
         // CHECK - the output path
         // path on disk (with output.publicPath removed)
         let mut normalized_path = href.strip_prefix("/").unwrap_or(href);
-        let path_prefix = Regex::new(r"/(^\/|\/$)/")
+        let path_prefix = Regex::new(r"(^\/|\/$)")
             .unwrap()
             .replace_all(public_path, "")
             + "/";
@@ -486,7 +486,7 @@ impl Critters {
         }
 
         // Ignore remote stylesheets
-        if Regex::new(r"/^https?:\/\//")
+        if Regex::new(r"^https?:\/\/")
             .unwrap()
             .is_match(normalized_path)
             || href.starts_with("//")
