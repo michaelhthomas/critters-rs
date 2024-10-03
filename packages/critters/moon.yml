@@ -11,6 +11,9 @@ fileGroups:
     - 'package.json'
 
 tasks:
+  dev:
+    command: 'nodemon --watch "../../crates/critters-rs" --ext ts,rs,json,toml --exec tsx build.ts'
+    local: true
   build:
     command: tsx build.ts
     inputs:
