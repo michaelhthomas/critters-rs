@@ -1,0 +1,20 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+language: javascript
+
+fileGroups:
+  crate:
+    - '/crates/critters-rs/**/*.rs'
+    - '/crates/critters-rs/Cargo.toml'
+    - '/Cargo.lock'
+  build:
+    - 'build.ts'
+    - 'package.json'
+
+tasks:
+  build:
+    command: tsx build.ts
+    inputs:
+      - '@group(crate)'
+      - '@group(build)'
+    outputs:
+      - 'dist'

@@ -14,14 +14,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::{default, path};
-use tsify_next::Tsify;
 use utils::{NodeRefExt, StyleRuleExt};
-use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "use-napi")]
+use napi_derive::napi;
 
 mod utils;
 
-#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
-#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum, Tsify)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub enum PreloadStrategy {
     /// Move stylesheet links to the end of the document and insert preload meta tags in their place.
     #[default]
@@ -42,8 +43,8 @@ pub enum PreloadStrategy {
     None,
 }
 
-#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
-#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum, Tsify)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub enum KeyframesStrategy {
     /// Inline keyframes rules used by the critical CSS
     #[default]
@@ -87,10 +88,10 @@ impl<'de> Deserialize<'de> for SelectorMatcher {
     }
 }
 
-#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
-#[derive(Debug, Clone, Serialize, Deserialize, clap::Args, Tsify)]
-#[serde(default)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Debug, Clone, Serialize, Deserialize, clap::Args)]
+#[serde(default, rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+#[cfg_attr(feature = "typegen", ts(export))]
 pub struct CrittersOptions {
     /// Base path location of the CSS files
     #[clap(short, long)]
@@ -103,10 +104,10 @@ pub struct CrittersOptions {
     pub external: bool,
     /// Inline stylesheets smaller than a given size.
     #[clap(long, default_value_t)]
-    pub inline_threshold: usize,
+    pub inline_threshold: u32,
     /// If the non-critical external stylesheet would be below this size, just inline it
     #[clap(long, default_value_t)]
-    pub minimum_external_size: usize,
+    pub minimum_external_size: u32,
     /// Remove inlined rules from the external stylesheet
     #[clap(long)]
     pub prune_source: bool,
@@ -141,7 +142,7 @@ pub struct CrittersOptions {
     pub compress: bool,
     /// Provide a list of selectors that should be included in the critical CSS.
     #[clap(skip)]
-    #[tsify(type = "string[]")]
+    #[cfg_attr(feature = "typegen", ts(as = "Vec<String>"))]
     pub allow_rules: Vec<SelectorMatcher>,
 }
 
@@ -169,28 +170,40 @@ impl default::Default for CrittersOptions {
 }
 
 #[derive(Clone)]
-#[wasm_bindgen(getter_with_clone)]
+#[cfg_attr(feature = "use-napi", napi)]
 pub struct Critters {
     options: CrittersOptions,
 }
 
-#[allow(non_snake_case)] // prevent rust-analyzer from linting within macro expansion
-#[wasm_bindgen]
+#[cfg(feature = "use-napi")]
+#[napi]
 impl Critters {
-    #[wasm_bindgen(constructor)]
-    pub fn new(options: CrittersOptions) -> Self {
-        Critters { options }
+    #[napi(constructor)]
+    pub fn new(options: Option<serde_json::Value>) -> anyhow::Result<Self> {
+        use anyhow::anyhow;
+        let options: CrittersOptions = match options {
+            Some(options) => serde_json::from_value(options)
+                .map_err(|e| anyhow!("Failed to parse options: {}", e))?,
+            None => Default::default(),
+        };
+        Ok(Critters { options })
     }
 
-    #[cfg(target_arch = "wasm32")]
-    pub fn process(&self, html: &str) -> Result<String, JsError> {
-        self.process_impl(html).map_err(|e| JsError::from(&*e))
+    /// Process the given HTML, extracting and inlining critical CSS
+    #[napi]
+    pub fn process(&self, html: String) -> anyhow::Result<String> {
+        self.process_impl(&html)
     }
 }
 
 impl Critters {
+    #[cfg(not(feature = "use-napi"))]
+    pub fn new(options: CrittersOptions) -> Self {
+        Critters { options }
+    }
+
     /// Process the given HTML, extracting and inlining critical CSS
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(feature = "use-napi"))]
     pub fn process(&self, html: &str) -> anyhow::Result<String> {
         self.process_impl(html)
     }
@@ -608,7 +621,7 @@ impl Critters {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "use-napi")))]
 mod tests {
     use std::fs::File;
     use std::io::Write;
