@@ -19,6 +19,28 @@ pub fn szudzik_pair(x: impl Into<u64>, y: impl Into<u64>) -> u64 {
     }
 }
 
+/// Locate all the HTML files within a given directory.
+#[cfg(feature = "directory")]
+pub fn locate_html_files(path: &str) -> anyhow::Result<Vec<std::path::PathBuf>> {
+    use walkdir::WalkDir;
+
+    let mut paths = Vec::new();
+
+    for entry in WalkDir::new(path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let f_name = entry.file_name().to_string_lossy();
+
+        if f_name.ends_with(".html") {
+            paths.push(entry.into_path())
+        }
+    }
+
+    Ok(paths)
+}
+
 pub trait StyleRuleExt {
     /// Generates a unique identifier that can be used to identify the rule in later passes of the AST.
     fn id(&self) -> u64;
@@ -52,6 +74,22 @@ impl NodeRefExt for NodeRef {
                     },
                 )
             }),
+        )
+    }
+}
+
+#[cfg(feature = "directory")]
+pub trait ProgressBarExt {
+    fn with_crate_style(self) -> indicatif::ProgressBar;
+}
+#[cfg(feature = "directory")]
+impl ProgressBarExt for indicatif::ProgressBar {
+    fn with_crate_style(self) -> indicatif::ProgressBar {
+        self.with_style(
+            indicatif::ProgressStyle::default_bar()
+                .progress_chars("━ ━")
+                .template("{prefix} {bar:60!.magenta/dim} {pos:>7.cyan}/{len:7.cyan}")
+                .unwrap(),
         )
     }
 }

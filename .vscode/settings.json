@@ -8,5 +8,6 @@
   },
   "[json]": {
     "editor.defaultFormatter": "biomejs.biome"
-  }
+  },
+  "rust-analyzer.cargo.features": ["cli"]
 }

@@ -12,7 +12,7 @@ fileGroups:
 
 tasks:
   dev:
-    command: 'nodemon --watch "../../crates/critters-rs" --ext ts,rs,json,toml --exec tsx build.ts'
+    command: 'pnpm nodemon --watch "../../crates/critters-rs" --ext ts,rs,json,toml --exec tsx build.ts'
     local: true
   build:
     command: tsx build.ts

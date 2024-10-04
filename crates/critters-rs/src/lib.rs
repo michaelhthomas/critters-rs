@@ -146,6 +146,17 @@ pub struct CrittersOptions {
     pub allow_rules: Vec<SelectorMatcher>,
 }
 
+/// Statistics resulting from `Critters::process_dir`.
+#[cfg_attr(feature = "use-napi", napi)]
+#[derive(Debug)]
+pub struct CrittersDirectoryStats {
+    /// Total duration of processing, in seconds
+    pub time_sec: f64,
+    /// Number of pages processed
+    pub pages: u32,
+    // TODO: add more stats
+}
+
 impl default::Default for CrittersOptions {
     fn default() -> Self {
         Self {
@@ -195,6 +206,12 @@ impl Critters {
     #[napi]
     pub fn process(&self, html: String) -> anyhow::Result<String> {
         self.process_impl(&html)
+    }
+
+    /// Process all HTML files in the configured directory
+    #[napi]
+    pub fn process_dir(&self) -> anyhow::Result<CrittersDirectoryStats> {
+        self.process_dir_impl(None)
     }
 }
 
@@ -254,6 +271,75 @@ impl Critters {
         let mut result = Vec::new();
         dom.serialize(&mut result)?;
         return Ok(String::from_utf8(result)?);
+    }
+
+    /// Process all HTML files in the configured directory
+    #[cfg(feature = "cli")]
+    pub fn process_dir(
+        &self,
+        multi_progress: Option<&indicatif::MultiProgress>,
+    ) -> anyhow::Result<CrittersDirectoryStats> {
+        self.process_dir_impl(multi_progress)
+    }
+
+    /// Process all HTML files in the configured directory
+    #[cfg(feature = "directory")]
+    fn process_dir_impl(
+        &self,
+        multi_progress: Option<&indicatif::MultiProgress>,
+    ) -> anyhow::Result<CrittersDirectoryStats> {
+        use indicatif::{ParallelProgressIterator, ProgressBar};
+        use log::info;
+        use rayon::prelude::*;
+        use std::time::Instant;
+        use utils::ProgressBarExt;
+
+        let files = utils::locate_html_files(&self.options.path)?;
+
+        let start = Instant::now();
+        let progress_bar = ProgressBar::new(files.len() as u64)
+            .with_crate_style()
+            .with_prefix("Inlining Critical CSS");
+        let progress_bar = if let Some(multi) = multi_progress {
+            multi.add(progress_bar)
+        } else {
+            progress_bar
+        };
+
+        files
+            .par_iter()
+            .progress_with(progress_bar.clone())
+            .for_each(|path| {
+                let start = Instant::now();
+
+                let html =
+                    fs::read_to_string(path.clone()).expect("Failed to load HTML file from disk.");
+                let processed = match self.process_impl(&html) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!("Failed to process file {} with error {e}", path.display());
+                        return;
+                    }
+                };
+                fs::write(path.clone(), processed).expect("Failed to write HTML file to disk.");
+
+                let duration = start.elapsed();
+
+                info!(
+                    "Processed {} in {} ms",
+                    path.strip_prefix(&self.options.path).unwrap().display(),
+                    duration.as_millis()
+                );
+            });
+
+        progress_bar.finish_and_clear();
+        if let Some(multi) = multi_progress {
+            multi.remove(&progress_bar);
+        }
+        Ok(CrittersDirectoryStats {
+            pages: files.len() as u32,
+            time_sec: start.elapsed().as_secs_f64(),
+        })
     }
 
     /// Gets inline styles from the document.

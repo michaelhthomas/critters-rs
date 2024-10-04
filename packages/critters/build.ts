@@ -30,6 +30,7 @@ await cli
 	.build({
 		manifestPath: path.join(CRATE_PATH, "Cargo.toml"),
 		features: ["use-napi"],
+		cargoOptions: ["--lib"],
 		release: true,
 		platform: true,
 		outputDir: RUST_OUT_DIR,
@@ -39,7 +40,7 @@ log.success("Build complete!");
 
 // fix types
 log.start("Updating bindings...");
-await exec("cargo test export_bindings --features typegen", {
+await exec("cargo test export_bindings --lib --features typegen", {
 	cwd: CRATE_PATH,
 	env: { TS_RS_EXPORT_DIR: RUST_OUT_DIR },
 });

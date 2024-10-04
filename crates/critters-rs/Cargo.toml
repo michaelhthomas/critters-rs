@@ -7,11 +7,17 @@ edition = "2021"
 [lib]
 crate-type = ["rlib", "cdylib"]
 
+[[bin]]
+name = "critters-rs"
+required-features = ["cli"]
+
 [dependencies]
 anyhow = "1.0.89"
 clap = { version = "4.5.17", features = ["derive"] }
 env_logger = { version = "0.11.5", optional = true }
 fancy-regex = "0.13.0"
+indicatif = { version = "0.17.8", features = ["rayon"], optional = true }
+indicatif-log-bridge = { version = "0.2.3", optional = true }
 itertools = "0.13.0"
 kuchikiki = "0.8.2"
 lightningcss = "1.0.0-alpha.59"
@@ -28,13 +34,17 @@ napi = { version = "2.12.2", default-features = false, optional = true, features
   "serde-json",
 ] }
 napi-derive = { version = "2.12.2", optional = true }
+rayon = { version = "1.10.0", optional = true }
 serde_json = { version = "1.0.128", optional = true }
 ts-rs = { version = "10.0.0", optional = true }
+walkdir = { version = "2.5.0", optional = true }
 
 [build-dependencies]
 napi-build = "2.0.1"
 
 [features]
 default = []
+directory = ["indicatif", "rayon", "walkdir"]
+cli = ["env_logger", "indicatif-log-bridge", "directory"]
 typegen = ["ts-rs"]
-use-napi = ["napi", "napi-derive", "serde_json", "env_logger"]
+use-napi = ["napi", "napi-derive", "serde_json", "env_logger", "directory"]
