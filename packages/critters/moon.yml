@@ -22,3 +22,9 @@ tasks:
       - '@group(build)'
     outputs:
       - 'dist'
+  test:
+    command: pnpm vitest run
+    inputs:
+      - '*.test.ts'
+    deps:
+      - build
