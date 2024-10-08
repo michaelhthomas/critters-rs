@@ -3,6 +3,9 @@
 	"version": "0.1.0",
 	"description": "Quickly inline your website's critical CSS.",
 	"scripts": {
+		"build": "moon run :build",
+		"build:napi": "moon run critters:build --",
+		"test": "moon run :test",
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check"
@@ -17,6 +20,7 @@
 	"packageManager": "pnpm@9.12.0+sha512.4abf725084d7bcbafbd728bfc7bee61f2f791f977fd87542b3579dcb23504d170d46337945e4c66485cd12d588a0c0e570ed9c477e7ccdd8507cf05f3f92eaca",
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.2",
-		"@moonrepo/cli": "^1.28.3"
+		"@moonrepo/cli": "^1.28.3",
+    "@napi-rs/cli": "3.0.0-alpha.63"
 	}
 }

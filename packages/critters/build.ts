@@ -23,6 +23,16 @@ const RUST_OUT_DIR = path.join(JS_DIR, "./pkg");
 
 const cli = new NapiCli();
 const exec = util.promisify(childProcess.exec);
+const args = util.parseArgs({
+	options: {
+		target: {
+			type: "string",
+		},
+		"use-napi-cross": {
+			type: "boolean",
+		},
+	},
+});
 
 // rust build
 log.start("Building crate for NAPI...");
@@ -33,6 +43,8 @@ await cli
 		cargoOptions: ["--lib"],
 		release: true,
 		platform: true,
+		target: args.values.target,
+		useNapiCross: args.values["use-napi-cross"],
 		outputDir: RUST_OUT_DIR,
 	})
 	.then((out) => out.task);
@@ -64,7 +76,18 @@ const output = await rollup({
 	plugins: [
 		pluginCjs({ defaultIsModuleExports: false }),
 		pluginEsmShim(),
-		pluginCopy({ targets: [{ src: "pkg/*.{node,ts}", dest: "dist" }] }),
+		pluginCopy({
+			targets:
+				// if the NAPI_TEST environment variable is set, we use the .node file
+				// from the project directory (usually generated using pipelines),
+				// instead of using the one created while generating the bindings.
+				process.env.NAPI_TEST === "true"
+					? [
+							{ src: "pkg/*.ts", dest: "dist" },
+							{ src: "../../*.node", dest: "dist" },
+						]
+					: [{ src: "pkg/*.{node,ts}", dest: "dist" }],
+		}),
 	],
 });
 

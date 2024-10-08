@@ -20,10 +20,11 @@ tasks:
     inputs:
       - '@group(crate)'
       - '@group(build)'
+      - '$NAPI_*'
     outputs:
       - 'dist'
   test:
-    command: pnpm vitest run
+    command: pnpm run test
     inputs:
       - '*.test.ts'
     deps:
