@@ -18,7 +18,7 @@ const pluginEsmShim =
 const pluginCopy = _pluginCopy as unknown as typeof _pluginCopy.default;
 
 const JS_DIR = path.dirname(url.fileURLToPath(import.meta.url));
-const CRATE_PATH = path.resolve(JS_DIR, "../../crates/critters-rs");
+const CRATE_PATH = path.resolve(JS_DIR, "../..");
 const RUST_OUT_DIR = path.join(JS_DIR, "./pkg");
 
 const cli = new NapiCli();

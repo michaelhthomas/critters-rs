@@ -3,8 +3,9 @@ language: javascript
 
 fileGroups:
   crate:
-    - '/crates/critters-rs/**/*.rs'
-    - '/crates/critters-rs/Cargo.toml'
+    - '/src/**/*.rs'
+    - '/build.rs'
+    - '/Cargo.toml'
     - '/Cargo.lock'
   build:
     - 'build.ts'
@@ -15,7 +16,7 @@ tasks:
     command: 'pnpm nodemon --watch "../../crates/critters-rs" --ext ts,rs,json,toml --exec tsx build.ts'
     local: true
   build:
-    command: tsx build.ts
+    command: pnpm tsx build.ts
     inputs:
       - '@group(crate)'
       - '@group(build)'

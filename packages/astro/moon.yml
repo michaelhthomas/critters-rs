@@ -14,12 +14,12 @@ fileGroups:
 
 tasks:
   dev:
-    command: 'tsup --watch'
+    command: 'pnpm tsup --watch'
     local: true
     deps:
       - '^:dev'
   build:
-    command: 'tsup'
+    command: 'pnpm tsup'
     inputs:
       - '@group(configs)'
       - '@group(sources)'
