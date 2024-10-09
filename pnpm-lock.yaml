@@ -73,21 +73,6 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2(@types/node@22.7.4)
 
-  tests:
-    devDependencies:
-      '@critters-rs/critters':
-        specifier: workspace:*
-        version: link:../packages/critters
-      '@types/node':
-        specifier: ^22.7.4
-        version: 22.7.4
-      tsx:
-        specifier: ^4.19.1
-        version: 4.19.1
-      vitest:
-        specifier: ^2.1.2
-        version: 2.1.2(@types/node@22.7.4)
-
 packages:
 
   '@ampproject/remapping@2.3.0':

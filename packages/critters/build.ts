@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import util from "node:util";
 import url from "node:url";
-import childProcess from "node:child_process";
+import { spawn } from "node:child_process";
 import { NapiCli } from "@napi-rs/cli";
 import { rimraf } from "rimraf";
 import { consola as log } from "consola";
@@ -22,7 +22,6 @@ const CRATE_PATH = path.resolve(JS_DIR, "../..");
 const RUST_OUT_DIR = path.join(JS_DIR, "./pkg");
 
 const cli = new NapiCli();
-const exec = util.promisify(childProcess.exec);
 const args = util.parseArgs({
 	options: {
 		target: {
@@ -52,10 +51,35 @@ log.success("Build complete!");
 
 // fix types
 log.start("Updating bindings...");
-await exec("cargo test export_bindings --lib --features typegen", {
-	cwd: CRATE_PATH,
-	env: { TS_RS_EXPORT_DIR: RUST_OUT_DIR },
+await new Promise<void>((resolve, reject) => {
+	const cargo = process.env.CARGO ?? "cargo";
+	const bindingsProcess = spawn(
+		cargo,
+		"test export_bindings --lib --features typegen".split(" "),
+		{
+			cwd: CRATE_PATH,
+			env: { ...process.env, TS_RS_EXPORT_DIR: RUST_OUT_DIR },
+			stdio: "inherit",
+		},
+	);
+
+	bindingsProcess.once("exit", (code) => {
+		if (code === 0) {
+			resolve();
+		} else {
+			reject(new Error(`Bindings generation failed with exit code ${code}`));
+		}
+	});
+
+	bindingsProcess.once("error", (e) => {
+		reject(
+			new Error(`Bindings generation failed with error: ${e.message}`, {
+				cause: e,
+			}),
+		);
+	});
 });
+
 const declarationFile = path.join(RUST_OUT_DIR, "index.d.ts");
 const declaration = await fs
 	.readFile(declarationFile)
