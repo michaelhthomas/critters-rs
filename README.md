@@ -50,6 +50,10 @@ View the documentation for other integrations in their package READMEs:
 
 - [Astro](./packages/astro/README.md)
 
+## Acknowledgements
+
+This project is heavily inspired by https://github.com/GoogleChromeLabs/critters, aiming to provide identical functionality while offering considerably improved performance. Much credit goes to the Google Chrome team for their work on the original library.
+
 ## License
 
 [Apache 2.0](LICENSE)
