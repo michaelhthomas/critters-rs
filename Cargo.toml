@@ -2,7 +2,15 @@
 name = "critters-rs"
 description = "Quickly inline your website's critical CSS."
 version = "0.1.0"
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/michaelhthomas/critters-rs"
+repository = "https://github.com/michaelhthomas/critters-rs"
 edition = "2021"
+include = [
+  "**/*.rs",
+  "Cargo.toml",
+]
 
 [lib]
 crate-type = ["rlib", "cdylib"]
