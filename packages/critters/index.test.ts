@@ -1,5 +1,5 @@
+import { expect, test } from "vitest";
 import { Critters } from "./dist/index.js";
-import { test, expect } from "vitest";
 
 test("basic functionality", () => {
 	const critters = new Critters();

@@ -1,15 +1,15 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import util from "node:util";
 import url from "node:url";
-import { spawn } from "node:child_process";
+import util from "node:util";
 import { NapiCli } from "@napi-rs/cli";
-import { rimraf } from "rimraf";
 import { consola as log } from "consola";
+import { rimraf } from "rimraf";
 
-import { rollup } from "rollup";
 import _pluginCjs from "@rollup/plugin-commonjs";
 import _pluginEsmShim from "@rollup/plugin-esm-shim";
+import { rollup } from "rollup";
 import _pluginCopy from "rollup-plugin-copy";
 // see https://github.com/rollup/plugins/issues/1662
 const pluginCjs = _pluginCjs as unknown as typeof _pluginCjs.default;
