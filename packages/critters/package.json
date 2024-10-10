@@ -1,12 +1,12 @@
 {
   "name": "@critters-rs/critters",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Quickly inline your website's critical CSS.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist/*.{js,ts}"
   ],
   "scripts": {
     "test": "vitest run",
