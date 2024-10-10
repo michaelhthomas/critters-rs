@@ -84,6 +84,8 @@ jobs:
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
+        env:
+          NAPI_SKIP_DTS: true
       - name: Test
         run: pnpm run --filter critters test
         if: matrix.settings.skipTests != true

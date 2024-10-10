@@ -33,92 +33,110 @@ const args = util.parseArgs({
 	},
 });
 
-// rust build
-log.start("Building crate for NAPI...");
-await cli
-	.build({
-		manifestPath: path.join(CRATE_PATH, "Cargo.toml"),
-		features: ["use-napi"],
-		cargoOptions: ["--lib"],
-		release: true,
-		platform: true,
-		target: args.values.target,
-		useNapiCross: args.values["use-napi-cross"],
-		outputDir: RUST_OUT_DIR,
-	})
-	.then((out) => out.task);
-log.success("Build complete!");
+async function rustBuild() {
+	await cli
+		.build({
+			manifestPath: path.join(CRATE_PATH, "Cargo.toml"),
+			features: ["use-napi"],
+			cargoOptions: ["--lib"],
+			release: true,
+			platform: true,
+			target: args.values.target,
+			useNapiCross: args.values["use-napi-cross"],
+			outputDir: RUST_OUT_DIR,
+		})
+		.then((out) => out.task);
+}
 
 // fix types
-log.start("Updating bindings...");
-await new Promise<void>((resolve, reject) => {
-	const cargo = process.env.CARGO ?? "cargo";
-	const bindingsProcess = spawn(
-		cargo,
-		"test export_bindings --lib --features typegen".split(" "),
-		{
-			cwd: CRATE_PATH,
-			env: { ...process.env, TS_RS_EXPORT_DIR: RUST_OUT_DIR },
-			stdio: "inherit",
-		},
-	);
-
-	bindingsProcess.once("exit", (code) => {
-		if (code === 0) {
-			resolve();
-		} else {
-			reject(new Error(`Bindings generation failed with exit code ${code}`));
-		}
-	});
-
-	bindingsProcess.once("error", (e) => {
-		reject(
-			new Error(`Bindings generation failed with error: ${e.message}`, {
-				cause: e,
-			}),
+async function fixTypes() {
+	await new Promise<void>((resolve, reject) => {
+		const cargo = process.env.CARGO ?? "cargo";
+		const bindingsProcess = spawn(
+			cargo,
+			"test export_bindings --lib --features typegen".split(" "),
+			{
+				cwd: CRATE_PATH,
+				env: { ...process.env, TS_RS_EXPORT_DIR: RUST_OUT_DIR },
+				stdio: "inherit",
+			},
 		);
-	});
-});
 
-const declarationFile = path.join(RUST_OUT_DIR, "index.d.ts");
-const declaration = await fs
-	.readFile(declarationFile)
-	.then((b) => b.toString("utf-8"));
-const updatedDeclaration = `import type { CrittersOptions as FullCrittersOptions } from "./CrittersOptions.ts";
+		bindingsProcess.once("exit", (code) => {
+			if (code === 0) {
+				resolve();
+			} else {
+				reject(new Error(`Bindings generation failed with exit code ${code}`));
+			}
+		});
+
+		bindingsProcess.once("error", (e) => {
+			reject(
+				new Error(`Bindings generation failed with error: ${e.message}`, {
+					cause: e,
+				}),
+			);
+		});
+	});
+
+	const declarationFile = path.join(RUST_OUT_DIR, "index.d.ts");
+	const declaration = await fs
+		.readFile(declarationFile)
+		.then((b) => b.toString("utf-8"));
+	const updatedDeclaration = `import type { CrittersOptions as FullCrittersOptions } from "./CrittersOptions.ts";
 export type CrittersOptions = Optional<FullCrittersOptions>;
 
 ${declaration.replace(/constructor\(.*?\)/, "constructor(options?: CrittersOptions)")}
 `;
-await fs.writeFile(declarationFile, updatedDeclaration);
-log.success("Bindings updated");
+	await fs.writeFile(declarationFile, updatedDeclaration);
+}
+
+// bundle
+async function bundleEsm() {
+	const output = await rollup({
+		input: path.join(JS_DIR, "index.js"),
+		external: ["util", "path", "fs", /.*\.node$/],
+		plugins: [
+			pluginCjs({ defaultIsModuleExports: false }),
+			pluginEsmShim(),
+			pluginCopy({
+				targets:
+					// if the NAPI_TEST environment variable is set, we use the .node file
+					// from the project directory (usually generated using pipelines),
+					// instead of using the one created while generating the bindings.
+					process.env.NAPI_TEST === "true"
+						? [
+								{ src: "pkg/*.ts", dest: "dist" },
+								{ src: "../../*.node", dest: "dist" },
+							]
+						: [{ src: "pkg/*.{node,ts}", dest: "dist" }],
+			}),
+		],
+	});
+
+	await output.write({
+		dir: "dist",
+		format: "esm",
+	});
+}
+
+// Main process
+
+// rust build
+log.start("Building crate for NAPI...");
+await rustBuild();
+log.success("Build complete!");
+
+// fix types
+if (process.env.NAPI_SKIP_DTS !== "true") {
+	log.start("Updating bindings...");
+	await fixTypes();
+	log.success("Bindings updated");
+}
 
 // bundle
 log.start("Bundling to ESM...");
-const output = await rollup({
-	input: path.join(JS_DIR, "index.js"),
-	external: ["util", "path", "fs", /.*\.node$/],
-	plugins: [
-		pluginCjs({ defaultIsModuleExports: false }),
-		pluginEsmShim(),
-		pluginCopy({
-			targets:
-				// if the NAPI_TEST environment variable is set, we use the .node file
-				// from the project directory (usually generated using pipelines),
-				// instead of using the one created while generating the bindings.
-				process.env.NAPI_TEST === "true"
-					? [
-							{ src: "pkg/*.ts", dest: "dist" },
-							{ src: "../../*.node", dest: "dist" },
-						]
-					: [{ src: "pkg/*.{node,ts}", dest: "dist" }],
-		}),
-	],
-});
-
-await output.write({
-	dir: "dist",
-	format: "esm",
-});
+await bundleEsm();
 log.success("Bundling complete!");
 
 // clean up intermediary files
