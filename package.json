@@ -8,7 +8,8 @@
 		"test": "moon run :test",
 		"lint": "biome lint",
 		"format": "biome format --write",
-		"check": "biome check"
+		"check": "biome check",
+		"artifacts": "napi artifacts"
 	},
 	"keywords": [
 		"css",
