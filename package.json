@@ -9,7 +9,8 @@
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check",
-		"artifacts": "napi artifacts"
+		"createNpmDirs": "napi create-npm-dirs --package-json-path ./packages/critters/package.json",
+		"artifacts": "napi artifacts --package-json-path ./packages/critters/package.json"
 	},
 	"keywords": [
 		"css",
