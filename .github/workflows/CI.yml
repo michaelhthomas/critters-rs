@@ -133,11 +133,11 @@ jobs:
       - name: Publish
         run: |
           npm config set provenance true
-          if git log -1 --pretty=%B | grep "release.*[0-9]\+\.[0-9]\+\.[0-9]\+";
+          if git log -1 --pretty=%B | grep "release main";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
             pnpm -r publish --access public
-          elif git log -1 --pretty=%B | grep "release.*next";
+          elif git log -1 --pretty=%B | grep "release next";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
             pnpm -r publish --tag next --access public
