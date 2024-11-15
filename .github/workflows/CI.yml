@@ -130,6 +130,8 @@ jobs:
         shell: bash
       - name: Build Integrations
         run: pnpm build
+      - name: View Git Changes
+        run: git status
       - name: Publish
         run: |
           npm config set provenance true
