@@ -10,7 +10,8 @@
 		"format": "biome format --write",
 		"check": "biome check",
 		"createNpmDirs": "napi create-npm-dirs --package-json-path ./packages/critters/package.json",
-		"artifacts": "napi artifacts --package-json-path ./packages/critters/package.json"
+		"artifacts": "napi artifacts --package-json-path ./packages/critters/package.json",
+		"prepublishOnly": "napi prepublish -t npm --package-json-path ./packages/critters/package.json --no-gh-release"
 	},
 	"keywords": [
 		"css",
