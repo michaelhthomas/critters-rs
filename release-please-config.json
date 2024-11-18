@@ -1,14 +1,15 @@
 {
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/refs/heads/main/schemas/config.json",
-  "packages": {
-    ".": {
-      "release-type": "rust"
-    },
-    "packages/critters": {
-      "release-type": "node"
-    },
-    "packages/astro": {
-      "release-type": "node"
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/refs/heads/main/schemas/config.json",
+	"packages": {
+		".": {
+			"release-type": "rust",
+			"exclude-paths": ["package.json", "pnpm-lock.yml", "packages"]
+		},
+		"packages/critters": {
+			"release-type": "node"
+		},
+		"packages/astro": {
+			"release-type": "node"
+		}
+	}
 }
