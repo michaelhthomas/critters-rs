@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.0.0...critters-v1.0.1) (2024-11-18)
+
+
+### Bug Fixes
+
+* **critters:** use correct typescript type ([3dccf48](https://github.com/michaelhthomas/critters-rs/commit/3dccf4830f947e0c78e8b2dace02720c70b664f2))
+
 ## 1.0.0 (2024-11-15)
 
 
