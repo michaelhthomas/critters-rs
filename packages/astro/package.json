@@ -9,8 +9,6 @@
 		"url": "https://github.com/michaelhthomas/critters-rs"
 	},
 	"main": "index.js",
-	"author": "Michael Thomas",
-	"license": "Apache-2.0",
 	"type": "module",
 	"keywords": [
 		"astro-integration",
