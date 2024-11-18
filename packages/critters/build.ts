@@ -84,7 +84,7 @@ async function fixTypes() {
 		.readFile(declarationFile)
 		.then((b) => b.toString("utf-8"));
 	const updatedDeclaration = `import type { CrittersOptions as FullCrittersOptions } from "./CrittersOptions.ts";
-export type CrittersOptions = Optional<FullCrittersOptions>;
+export type CrittersOptions = Partial<FullCrittersOptions>;
 
 ${declaration.replace(/constructor\(.*?\)/, "constructor(options?: CrittersOptions)")}
 `;
