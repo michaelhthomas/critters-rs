@@ -650,6 +650,17 @@ impl Critters {
             link_attrs.insert("as", "style".to_string());
         };
 
+        let noscript_link = NodeRef::new(link.data().clone());
+        let inject_noscript_fallback = || {
+            let noscript = NodeRef::new_html_element("noscript", Vec::new());
+            let noscript_link_el = noscript_link.as_element().unwrap();
+            let mut noscript_link_attrs = noscript_link_el.attributes.borrow_mut();
+            noscript_link_attrs.remove("id");
+            drop(noscript_link_attrs);
+            noscript.append(noscript_link);
+            link.insert_before(noscript);
+        };
+
         // TODO: Implement other branches, removing those deemed unnecessary
         match self.options.preload {
             PreloadStrategy::BodyPreload => {
@@ -667,10 +678,17 @@ impl Critters {
             }
             PreloadStrategy::Body => body.as_node().append(link.clone()),
             PreloadStrategy::Media => todo!(),
-            PreloadStrategy::Swap => todo!(),
+            PreloadStrategy::Swap => {
+                let mut link_attrs = link_el.attributes.borrow_mut();
+                link_attrs.insert("onload", "this.rel='stylesheet'".to_string());
+                drop(link_attrs);
+
+                update_link_to_preload();
+                inject_noscript_fallback();
+            }
             PreloadStrategy::SwapHigh => todo!(),
             PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
-            PreloadStrategy::None => todo!(),
+            PreloadStrategy::None => (),
         };
 
         Ok(Some(style))
@@ -893,5 +911,73 @@ mod tests {
         assert!(!stylesheets[0].contains(".non-critical"));
         assert!(stylesheets[1].contains(".critical{background-color"));
         assert!(!stylesheets[1].contains(".non-critical"));
+    }
+
+    #[test]
+    fn preload_swap() {
+        use markup5ever::{local_name, namespace_url, ns, QualName};
+
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::Swap,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+
+        let preload_link = dom
+            .select_first("head > link[rel=preload]")
+            .expect("Failed to locate preload link.");
+        assert_eq!(
+            preload_link.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+        assert_eq!(preload_link.attributes.borrow().get("as"), Some("style"));
+
+        let noscript_el = dom
+            .select_first("noscript")
+            .expect("Failed to locate noscript link");
+        let noscript_text = noscript_el
+            .as_node()
+            .children()
+            .exactly_one()
+            .expect("Could not get noscript text content.");
+        let noscript_text_val = noscript_text.as_text().unwrap().borrow().clone();
+
+        let ctx_name = QualName::new(None, ns!(html), local_name!("link"));
+        let parser = kuchikiki::parse_fragment(ctx_name, vec![]);
+        let noscript_doc = parser.one(noscript_text_val);
+        let noscript_child = noscript_doc
+            .first_child()
+            .expect("Could not get noscript link element.")
+            .first_child()
+            .expect("Could not get noscript link element.");
+        let noscript_child_el = noscript_child.as_element().unwrap();
+
+        assert_eq!(
+            noscript_child_el.name.local,
+            markup5ever::LocalName::from("link")
+        );
+        assert_eq!(
+            noscript_child_el.attributes.borrow().get("rel"),
+            Some("stylesheet")
+        );
+        assert_eq!(
+            noscript_child_el.attributes.borrow().get("href"),
+            Some("external.css")
+        );
     }
 }
