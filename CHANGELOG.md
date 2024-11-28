@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.2](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v0.1.0...critters-rs-v1.0.2) (2024-11-28)
+
+
+### Features
+
+* implement "media" preload strategy ([a4c5d06](https://github.com/michaelhthomas/critters-rs/commit/a4c5d063cd7c3bcb1992c3f038f996ccdb471d4b))
+* implement "swap-high" preload strategy ([7086983](https://github.com/michaelhthomas/critters-rs/commit/7086983165ff3a49544c8c028193b0832652dc36))
+* implement "swap" preload strategy ([07c7579](https://github.com/michaelhthomas/critters-rs/commit/07c75796a387f82d6269c91d75ceac2b8179b058))
+* support merging stylesheets ([1588b9c](https://github.com/michaelhthomas/critters-rs/commit/1588b9c81dbf499ade82348febb7561e09af8ebf))
+
+
+### Bug Fixes
+
+* disable unimplemented preload strategies ([ba86c9d](https://github.com/michaelhthomas/critters-rs/commit/ba86c9d59bf5813c3f73d65c1d3385c95766efa3))
+
 ## 0.1.0 (2024-11-15)
 
 
