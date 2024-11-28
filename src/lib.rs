@@ -251,7 +251,7 @@ impl Critters {
         }
 
         // Extract and inline critical CSS
-        for style in styles {
+        for style in styles.iter() {
             let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
@@ -264,7 +264,7 @@ impl Critters {
 
         // Merge stylesheets
         if self.options.merge_stylesheets {
-            // TODO: merge stylesheets
+            self.merge_stylesheets(styles)
         }
 
         // Serialize back to an HTML string
@@ -525,7 +525,7 @@ impl Critters {
     }
 
     /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
-    fn process_style_el(&self, style: NodeRef, dom: NodeRef) -> anyhow::Result<()> {
+    fn process_style_el(&self, style: &NodeRef, dom: NodeRef) -> anyhow::Result<()> {
         let style_child = match style.children().nth(0) {
             Some(c) => c,
             // skip empty stylesheets
@@ -747,6 +747,25 @@ impl Critters {
 
         Ok(())
     }
+
+    fn merge_stylesheets(&self, styles: Vec<NodeRef>) {
+        let mut styles_iter = styles.into_iter().rev();
+        let first = match styles_iter.next() {
+            Some(f) => match f.first_child() {
+                Some(c) => c,
+                None => return,
+            },
+            None => return,
+        };
+
+        let mut sheet = first.text_contents();
+        for style in styles_iter {
+            sheet += &style.text_contents();
+            style.detach();
+        }
+
+        first.into_text_ref().unwrap().replace(sheet);
+    }
 }
 
 #[cfg(all(test, not(feature = "use-napi")))]
@@ -914,6 +933,7 @@ mod tests {
 
         let critters = Critters::new(CrittersOptions {
             path: tmp_dir,
+            merge_stylesheets: false,
             additional_stylesheets: vec!["add.css".to_string()],
             ..Default::default()
         });
@@ -933,6 +953,38 @@ mod tests {
         assert!(!stylesheets[0].contains(".non-critical"));
         assert!(stylesheets[1].contains(".critical{background-color"));
         assert!(!stylesheets[1].contains(".non-critical"));
+    }
+
+    #[test]
+    fn merge_stylesheets() {
+        let tmp_dir = create_test_folder(&[(
+            "add.css",
+            ".critical { background-color: blue; } .non-critical { background-color: red; }",
+        )]);
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            merge_stylesheets: true,
+            additional_stylesheets: vec!["add.css".to_string()],
+            ..Default::default()
+        });
+
+        let processed = critters.process(BASIC_HTML).unwrap();
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheets: Vec<_> = dom
+            .select("style")
+            .unwrap()
+            .map(|s| s.text_contents())
+            .collect();
+
+        assert_eq!(stylesheets.len(), 1);
+        let stylesheet = &stylesheets[0];
+        assert!(stylesheet.contains(".critical{color:red}"));
+        assert!(!stylesheet.contains(".non-critical"));
+        assert!(stylesheet.contains(".critical{background-color"));
+        assert!(!stylesheet.contains(".non-critical"));
     }
 
     fn setup_preload_test(strategy: PreloadStrategy, link_attrs: Vec<(&str, &str)>) -> NodeRef {
