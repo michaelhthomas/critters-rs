@@ -35,10 +35,10 @@ pub enum PreloadStrategy {
     Swap,
     /// Use <link rel="alternate stylesheet preload"> and swap to rel="stylesheet" once loaded (details). JS
     SwapHigh,
-    /// Inject an asynchronous CSS loader similar to LoadCSS and use it to load stylesheets. JS
-    Js,
-    /// Like "js", but the stylesheet is disabled until fully loaded.
-    JsLazy,
+    // /// Inject an asynchronous CSS loader similar to LoadCSS and use it to load stylesheets. JS
+    // Js,
+    // /// Like "js", but the stylesheet is disabled until fully loaded.
+    // JsLazy,
     /// Disables adding preload tags.
     None,
 }
@@ -661,7 +661,6 @@ impl Critters {
             link.insert_before(noscript);
         };
 
-        // TODO: Implement other branches, removing those deemed unnecessary
         match self.options.preload {
             PreloadStrategy::BodyPreload => {
                 // create new identical link
@@ -710,7 +709,7 @@ impl Critters {
 
                 inject_noscript_fallback();
             }
-            PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
+            // PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
             PreloadStrategy::None => (),
         };
 
