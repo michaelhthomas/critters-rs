@@ -1,5 +1,5 @@
 use kuchikiki::NodeRef;
-use lightningcss::rules::style::StyleRule;
+use lightningcss::{rules::style::StyleRule, traits::Parse};
 
 /// Implementation of the Szudzik pairing function.
 ///
@@ -92,4 +92,8 @@ impl ProgressBarExt for indicatif::ProgressBar {
                 .unwrap(),
         )
     }
+}
+
+pub fn is_valid_media_query(s: &str) -> bool {
+    lightningcss::media_query::MediaQuery::parse_string(s).is_ok()
 }

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::{default, path};
-use utils::{NodeRefExt, StyleRuleExt};
+use utils::{is_valid_media_query, NodeRefExt, StyleRuleExt};
 
 #[cfg(feature = "use-napi")]
 use napi_derive::napi;
@@ -677,7 +677,21 @@ impl Critters {
                 update_link_to_preload();
             }
             PreloadStrategy::Body => body.as_node().append(link.clone()),
-            PreloadStrategy::Media => todo!(),
+            PreloadStrategy::Media => {
+                let mut link_attrs = link_el.attributes.borrow_mut();
+                let media = link_attrs.get("media").and_then(|m| {
+                    // avoid script injection
+                    is_valid_media_query(m).then(|| m.to_string())
+                });
+                link_attrs.insert("media", "print".to_string());
+                link_attrs.insert(
+                    "onload",
+                    format!("this.media='{}'", media.unwrap_or("all".to_string())),
+                );
+                drop(link_attrs);
+
+                inject_noscript_fallback();
+            }
             PreloadStrategy::Swap => {
                 let mut link_attrs = link_el.attributes.borrow_mut();
                 link_attrs.insert("onload", "this.rel='stylesheet'".to_string());
@@ -913,10 +927,35 @@ mod tests {
         assert!(!stylesheets[1].contains(".non-critical"));
     }
 
-    #[test]
-    fn preload_swap() {
+    fn get_noscript_link(noscript_el: &NodeRef) -> NodeRef {
         use markup5ever::{local_name, namespace_url, ns, QualName};
 
+        let noscript_text = noscript_el
+            .children()
+            .exactly_one()
+            .expect("Could not get noscript text content.");
+        let noscript_text_val = noscript_text.as_text().unwrap().borrow().clone();
+
+        let ctx_name = QualName::new(None, ns!(html), local_name!("link"));
+        let parser = kuchikiki::parse_fragment(ctx_name, vec![]);
+        let noscript_doc = parser.one(noscript_text_val);
+        let noscript_child = noscript_doc
+            .first_child()
+            .expect("Could not get noscript link element.")
+            .first_child()
+            .expect("Could not get noscript link element.");
+        let noscript_child_el = noscript_child.as_element().unwrap();
+
+        assert_eq!(
+            noscript_child_el.name.local,
+            markup5ever::LocalName::from("link")
+        );
+
+        noscript_child
+    }
+
+    #[test]
+    fn preload_swap() {
         let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
 
         let html = construct_html(
@@ -950,33 +989,62 @@ mod tests {
         let noscript_el = dom
             .select_first("noscript")
             .expect("Failed to locate noscript link");
-        let noscript_text = noscript_el
-            .as_node()
-            .children()
-            .exactly_one()
-            .expect("Could not get noscript text content.");
-        let noscript_text_val = noscript_text.as_text().unwrap().borrow().clone();
-
-        let ctx_name = QualName::new(None, ns!(html), local_name!("link"));
-        let parser = kuchikiki::parse_fragment(ctx_name, vec![]);
-        let noscript_doc = parser.one(noscript_text_val);
-        let noscript_child = noscript_doc
-            .first_child()
-            .expect("Could not get noscript link element.")
-            .first_child()
-            .expect("Could not get noscript link element.");
-        let noscript_child_el = noscript_child.as_element().unwrap();
+        let noscript_link = get_noscript_link(noscript_el.as_node());
+        let noscript_link_el = noscript_link.as_element().unwrap();
 
         assert_eq!(
-            noscript_child_el.name.local,
-            markup5ever::LocalName::from("link")
-        );
-        assert_eq!(
-            noscript_child_el.attributes.borrow().get("rel"),
+            noscript_link_el.attributes.borrow().get("rel"),
             Some("stylesheet")
         );
         assert_eq!(
-            noscript_child_el.attributes.borrow().get("href"),
+            noscript_link_el.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+    }
+
+    #[test]
+    fn preload_media() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" media="test" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::Media,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+
+        let preload_link = dom
+            .select_first("head > link[media=print]")
+            .expect("Failed to locate preload link.");
+        assert_eq!(
+            preload_link.attributes.borrow().get("onload"),
+            Some("this.media='test'")
+        );
+
+        let noscript_el = dom
+            .select_first("noscript")
+            .expect("Failed to locate noscript link");
+        let noscript_link = get_noscript_link(noscript_el.as_node());
+        let noscript_link_el = noscript_link.as_element().unwrap();
+
+        assert_eq!(
+            noscript_link_el.attributes.borrow().get("rel"),
+            Some("stylesheet")
+        );
+        assert_eq!(
+            noscript_link_el.attributes.borrow().get("href"),
             Some("external.css")
         );
     }
