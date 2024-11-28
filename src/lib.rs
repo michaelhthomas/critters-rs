@@ -700,7 +700,16 @@ impl Critters {
                 update_link_to_preload();
                 inject_noscript_fallback();
             }
-            PreloadStrategy::SwapHigh => todo!(),
+            PreloadStrategy::SwapHigh => {
+                let mut link_attrs = link_el.attributes.borrow_mut();
+                link_attrs.insert("rel", "alternate stylesheet preload".to_string());
+                link_attrs.insert("as", "style".to_string());
+                link_attrs.insert("title", "styles".to_string());
+                link_attrs.insert("onload", "this.title='';this.rel='stylesheet'".to_string());
+                drop(link_attrs);
+
+                inject_noscript_fallback();
+            }
             PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
             PreloadStrategy::None => (),
         };
@@ -927,6 +936,36 @@ mod tests {
         assert!(!stylesheets[1].contains(".non-critical"));
     }
 
+    fn setup_preload_test(strategy: PreloadStrategy, link_attrs: Vec<(&str, &str)>) -> NodeRef {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            &format!(
+                r#"<link rel="stylesheet" href="external.css" {} />"#,
+                link_attrs
+                    .iter()
+                    .map(|(k, v)| format!(r#"{k}="{v}""#))
+                    .join(" ")
+            ),
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: strategy,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = kuchikiki::parse_html();
+
+        parser.one(processed)
+    }
+
     fn get_noscript_link(noscript_el: &NodeRef) -> NodeRef {
         use markup5ever::{local_name, namespace_url, ns, QualName};
 
@@ -956,26 +995,7 @@ mod tests {
 
     #[test]
     fn preload_swap() {
-        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
-
-        let html = construct_html(
-            r#"<link rel="stylesheet" href="external.css" />"#,
-            r#"<div class="critical">Hello world</div>"#,
-        );
-
-        let critters = Critters::new(CrittersOptions {
-            path: tmp_dir,
-            external: true,
-            preload: PreloadStrategy::Swap,
-            ..Default::default()
-        });
-
-        let processed = critters
-            .process(&html)
-            .expect("Failed to inline critical css");
-
-        let parser = kuchikiki::parse_html();
-        let dom = parser.one(processed);
+        let dom = setup_preload_test(PreloadStrategy::Swap, vec![]);
 
         let preload_link = dom
             .select_first("head > link[rel=preload]")
@@ -1003,27 +1023,49 @@ mod tests {
     }
 
     #[test]
-    fn preload_media() {
-        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+    fn preload_swap_high() {
+        let dom = setup_preload_test(PreloadStrategy::SwapHigh, vec![]);
 
-        let html = construct_html(
-            r#"<link rel="stylesheet" href="external.css" media="test" />"#,
-            r#"<div class="critical">Hello world</div>"#,
+        let preload_link = dom
+            .select_first("head > link[rel~=preload]")
+            .expect("Failed to locate preload link.");
+        assert_eq!(
+            preload_link.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+        assert_eq!(
+            preload_link.attributes.borrow().get("rel"),
+            Some("alternate stylesheet preload")
+        );
+        assert_eq!(preload_link.attributes.borrow().get("as"), Some("style"));
+        assert_eq!(
+            preload_link.attributes.borrow().get("title"),
+            Some("styles")
+        );
+        assert_eq!(
+            preload_link.attributes.borrow().get("onload"),
+            Some("this.title='';this.rel='stylesheet'")
         );
 
-        let critters = Critters::new(CrittersOptions {
-            path: tmp_dir,
-            external: true,
-            preload: PreloadStrategy::Media,
-            ..Default::default()
-        });
+        let noscript_el = dom
+            .select_first("noscript")
+            .expect("Failed to locate noscript link");
+        let noscript_link = get_noscript_link(noscript_el.as_node());
+        let noscript_link_el = noscript_link.as_element().unwrap();
 
-        let processed = critters
-            .process(&html)
-            .expect("Failed to inline critical css");
+        assert_eq!(
+            noscript_link_el.attributes.borrow().get("rel"),
+            Some("stylesheet")
+        );
+        assert_eq!(
+            noscript_link_el.attributes.borrow().get("href"),
+            Some("external.css")
+        );
+    }
 
-        let parser = kuchikiki::parse_html();
-        let dom = parser.one(processed);
+    #[test]
+    fn preload_media() {
+        let dom = setup_preload_test(PreloadStrategy::Media, vec![("media", "test")]);
 
         let preload_link = dom
             .select_first("head > link[media=print]")
