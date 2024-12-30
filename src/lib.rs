@@ -431,7 +431,7 @@ impl Critters {
 
                 if filtered_selectors.is_empty() {
                     rules_to_remove.insert(style_rule.id());
-                    break;
+                    continue;
                 } else {
                     style_rule.selectors = SelectorList::new(filtered_selectors.into());
                 }
@@ -846,6 +846,40 @@ mod tests {
 
         assert!(stylesheet.contains(".critical"));
         assert!(!stylesheet.contains(".non-critical"));
+    }
+
+    #[test]
+    fn complex() {
+        let critters = Critters::new(Default::default());
+
+        let html = construct_html(
+            r#"<style>
+                .red { color: red; }
+                .green { color: green; }
+                .blue { color: blue; }
+                .purple { color: purple; }
+                .link-underline > a { text-decoration: underline; }
+            </style>"#,
+            r#"<div>
+                <h1 class="red">This is a heading</h1>
+                <p class="purple link-underline">
+                    This is some body text
+                    <a>This should be underlined</a>
+                </p>
+            </div>"#,
+        );
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        assert!(stylesheet.contains(".red"));
+        assert!(stylesheet.contains(".purple"));
+        assert!(stylesheet.contains(".link-underline>a"));
+        assert!(!stylesheet.contains(".green"));
+        assert!(!stylesheet.contains(".blue"));
     }
 
     #[test]
