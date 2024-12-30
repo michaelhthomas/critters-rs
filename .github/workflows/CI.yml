@@ -96,8 +96,35 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           path: "./packages/critters/dist/*.node"
           if-no-files-found: error
-  publish:
-    name: Publish
+
+  publish-rust:
+    name: Publish to Crates.io
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Test build
+        run: cargo build --release --verbose
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Rust publish
+        run: |
+          if git log -1 --pretty=%B | grep "release main";
+          then
+            cargo publish --token ${CRATES_TOKEN}
+          fi
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+
+  publish-npm:
+    name: Publish to NPM
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs:
@@ -115,6 +142,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+
+      # NPM Publish
       - name: Install dependencies
         run: pnpm install
       - name: Download all artifacts
@@ -132,7 +161,7 @@ jobs:
         run: pnpm build
       - name: View Git Changes
         run: git status
-      - name: Publish
+      - name: Publish NPM
         run: |
           npm config set provenance true
           if git log -1 --pretty=%B | grep "release main";
