@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.0.2...critters-rs-v1.0.3) (2024-12-30)
+
+
+### Bug Fixes
+
+* do not abort selector filtering after the first match ([eb4412b](https://github.com/michaelhthomas/critters-rs/commit/eb4412bcbd5b42fbb401d389b2ae1f48f1d81389))
+
 ## [1.0.2](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v0.1.0...critters-rs-v1.0.2) (2024-11-28)
 
 
