@@ -8,7 +8,7 @@ use lightningcss::selector::SelectorList;
 use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
-use log::error;
+use log::{debug, error};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -251,6 +251,7 @@ impl Critters {
         }
 
         // Extract and inline critical CSS
+        debug!("Inlining {} stylesheets.", styles.len());
         for style in styles.iter() {
             let res = self.process_style_el(style, dom.clone());
             // Log processing errors and skip associated stylesheets
@@ -463,6 +464,7 @@ impl Critters {
         }
 
         let mut preloaded_fonts = HashSet::new();
+        let original_rules = ast.rules.0.len();
         ast.rules.0.retain(|rule| match rule {
             CssRule::Style(s) => !rules_to_remove.contains(&s.id()),
             CssRule::Keyframes(k) => {
@@ -514,6 +516,12 @@ impl Critters {
             }
             _ => true,
         });
+
+        debug!(
+            "Removed {}/{} rules.",
+            original_rules - ast.rules.0.len(),
+            original_rules
+        );
 
         // serialize stylesheet
         let css = ast.to_css(PrinterOptions {
