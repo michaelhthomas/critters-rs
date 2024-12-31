@@ -8,7 +8,7 @@ use lightningcss::selector::SelectorList;
 use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
-use log::{debug, error};
+use log::{debug, error, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -587,7 +587,7 @@ impl Critters {
         let filename = match path::absolute(path::Path::new(output_path).join(normalized_path)) {
             Ok(path) => path,
             Err(e) => {
-                error!(
+                warn!(
                     "Failed to resolve path with output path {} and href {}. {e}",
                     output_path, normalized_path
                 );
@@ -597,7 +597,7 @@ impl Critters {
 
         // Check if the resolved path is valid
         if !filename.starts_with(&output_path_absolute) {
-            error!(
+            warn!(
                 "Matched stylesheet with path \"{}\", which is not within the configured output path \"{}\".",
                 filename.display(),
                 output_path_absolute.display()
