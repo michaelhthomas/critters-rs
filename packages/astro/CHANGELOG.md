@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.0.2...astro-v1.1.0) (2024-12-31)
+
+
+### Miscellaneous Chores
+
+* trigger release 1.1.0 ([62130e9](https://github.com/michaelhthomas/critters-rs/commit/62130e9772500cc6f68dac8a45a10a88ff932e73))
+
 ## [1.0.2](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.0.1...astro-v1.0.2) (2024-11-28)
 
 
