@@ -11,6 +11,7 @@
 			"release-type": "node"
 		},
 		"packages/astro": {
+			"component": "astro",
 			"release-type": "node"
 		}
 	},
@@ -18,7 +19,7 @@
 		{
 			"type": "linked-versions",
 			"groupName": "critters",
-			"components": ["critters-rs", "critters"]
+			"components": ["critters-rs", "critters", "astro"]
 		}
 	]
 }
