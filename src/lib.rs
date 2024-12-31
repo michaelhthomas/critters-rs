@@ -9,6 +9,7 @@ use lightningcss::stylesheet::StyleSheet;
 use lightningcss::traits::ToCss;
 use lightningcss::values::ident::CustomIdent;
 use log::{debug, error, warn};
+use path_clean::PathClean;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -592,7 +593,7 @@ impl Critters {
         }
 
         let filename = match path::absolute(path::Path::new(output_path).join(normalized_path)) {
-            Ok(path) => path,
+            Ok(path) => path.clean(),
             Err(e) => {
                 warn!(
                     "Failed to resolve path with output path {} and href {}. {e}",

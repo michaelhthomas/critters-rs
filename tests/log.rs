@@ -20,9 +20,18 @@ fn skip_invalid_path() {
     let result = critters.process(&html).expect("Failed to process html.");
 
     mock_logger::MockLogger::entries(|entries| {
-        assert!(entries.iter().any(|l| l.level == log::Level::Warn
-            && l.body.contains("not within the configured output path")
-            && l.body.contains("styles.css")));
+        assert!(
+            entries.iter().any(|l| l.level == log::Level::Warn
+                && l.body.contains("not within the configured output path")
+                && l.body.contains("styles.css")),
+            "{}",
+            entries
+                .iter()
+                .filter(|l| l.body.contains("critters_rs"))
+                .map(|l| l.body.clone())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
     });
     assert_snapshot!(result);
 }
