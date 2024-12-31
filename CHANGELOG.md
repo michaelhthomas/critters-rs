@@ -7,6 +7,13 @@
 
 * **critters-rs:** Synchronize critters versions
 
+## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.0...critters-rs-v1.1.0) (2024-12-31)
+
+
+### Miscellaneous Chores
+
+* **critters-rs:** Synchronize critters versions
+
 ## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.0.3...critters-rs-v1.1.0) (2024-12-31)
 
 
