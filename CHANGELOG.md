@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.0.3...critters-rs-v1.1.0) (2024-12-31)
+
+
+### Features
+
+* add support for allow_rules option ([2085113](https://github.com/michaelhthomas/critters-rs/commit/20851131776909c610e0fe740486e053a500d550))
+* support critters container attribute ([14bc53e](https://github.com/michaelhthomas/critters-rs/commit/14bc53e50a8e5a2d8854f9847e2b75dbd3e5ef62))
+
+
+### Bug Fixes
+
+* change level of stylesheet resolution issues to warning ([9bcbd3e](https://github.com/michaelhthomas/critters-rs/commit/9bcbd3eb648de7482150b9f77e71dc4d254f65a5))
+* properly resolve relative paths on POSIX platforms ([8074771](https://github.com/michaelhthomas/critters-rs/commit/807477199aac257ffda9968c26a60048b8b7fd62))
+
+
+### Performance Improvements
+
+* cache regular expressions ([5971da0](https://github.com/michaelhthomas/critters-rs/commit/5971da093188f6b8d174fe2929cffe88d3079e90))
+* only take first element from selector match iterator ([40aac0a](https://github.com/michaelhthomas/critters-rs/commit/40aac0ab7759c7718726be18703ee91f42bbf4d8))
+
 ## [1.0.3](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.0.2...critters-rs-v1.0.3) (2024-12-30)
 
 
