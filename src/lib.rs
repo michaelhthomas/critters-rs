@@ -418,7 +418,8 @@ impl Critters {
 
                         // check DOM for elements matching selector
                         match critters_container.as_node().select(&selector) {
-                            Ok(iter) => iter.count() > 0,
+                            // selector matches at least once
+                            Ok(mut iter) => iter.next().is_some(),
                             Err(_) => {
                                 failed_selectors
                                     .push(format!("{} -> {}", &selector, "Invalid syntax"));
