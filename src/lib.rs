@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::{default, path};
-use utils::{is_valid_media_query, NodeRefExt, StyleRuleExt};
+use utils::{is_valid_media_query, regex, NodeRefExt, StyleRuleExt};
 
 #[cfg(feature = "use-napi")]
 use napi_derive::napi;
@@ -398,7 +398,7 @@ impl Critters {
         for rule in &mut ast.rules.0 {
             if let CssRule::Style(style_rule) = rule {
                 // TODO: Handle allowed rules
-                let global_pseudo_regex = Regex::new(r"^::?(before|after)$").unwrap();
+                let global_pseudo_regex = regex!(r"^::?(before|after)$");
 
                 // Filter selectors based on their usage in the document
                 let filtered_selectors = style_rule
@@ -475,8 +475,7 @@ impl Critters {
                 critical_keyframe_names.contains(&kf_name.to_string())
             }
             CssRule::FontFace(f) => {
-                let href_regex =
-                    fancy_regex::Regex::new(r#"url\s*\(\s*(['"]?)(.+?)\1\s*\)"#).unwrap();
+                let href_regex = regex!(r#"url\s*\(\s*(['"]?)(.+?)\1\s*\)"#, fancy_regex::Regex);
                 let mut href = None;
                 let mut family = None;
 
@@ -569,10 +568,7 @@ impl Critters {
         // CHECK - the output path
         // path on disk (with output.publicPath removed)
         let mut normalized_path = href.strip_prefix("/").unwrap_or(href);
-        let path_prefix = Regex::new(r"(^\/|\/$)")
-            .unwrap()
-            .replace_all(public_path, "")
-            + "/";
+        let path_prefix = regex!(r"(^\/|\/$)").replace_all(public_path, "") + "/";
 
         if normalized_path.starts_with(&*path_prefix) {
             normalized_path = normalized_path
@@ -582,11 +578,7 @@ impl Critters {
         }
 
         // Ignore remote stylesheets
-        if Regex::new(r"^https?:\/\/")
-            .unwrap()
-            .is_match(normalized_path)
-            || href.starts_with("//")
-        {
+        if regex!(r"^https?:\/\/").is_match(normalized_path) || href.starts_with("//") {
             return None;
         }
 

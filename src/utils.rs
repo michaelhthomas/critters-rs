@@ -97,3 +97,17 @@ impl ProgressBarExt for indicatif::ProgressBar {
 pub fn is_valid_media_query(s: &str) -> bool {
     lightningcss::media_query::MediaQuery::parse_string(s).is_ok()
 }
+
+/// Macro to create a cached Regular expression literal.
+macro_rules! regex {
+    ($re:expr) => {
+        regex!($re, regex::Regex)
+    };
+    ($re:expr, $engine:ty) => {{
+        static RE: std::sync::LazyLock<$engine> =
+            std::sync::LazyLock::new(|| <$engine>::new($re).unwrap());
+        std::sync::LazyLock::force(&RE)
+    }};
+}
+
+pub(crate) use regex;
