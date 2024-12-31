@@ -1,0 +1,12 @@
+---
+source: tests/critters.rs
+expression: result
+---
+<html><head>
+          <title>$title</title>
+          <style>h1{color:#00f}</style><link rel="preload" href="/style.css" crossorigin="anonymous" integrity="sha384-j1GsrLo96tLqzfCY+" as="style">
+        </head>
+        <body>
+          <h1>Hello World!</h1>
+        
+      <link rel="stylesheet" href="/style.css" crossorigin="anonymous" integrity="sha384-j1GsrLo96tLqzfCY+"></body></html>

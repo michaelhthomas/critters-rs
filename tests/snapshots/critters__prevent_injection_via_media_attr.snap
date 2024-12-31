@@ -1,0 +1,26 @@
+---
+source: tests/critters.rs
+expression: result
+---
+<html><head><link>
+    <title>Testing</title>
+    <noscript><link rel="stylesheet" href="styles.css" media="alert(1)"></noscript><link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
+    <style>body{height:100%}h1{color:#00f}p{color:purple}.contents{padding:50px;text-align:center}.input-field{padding:10px}</style><noscript><link rel="stylesheet" href="styles2.css" media="screen and (min-width: 480px)"></noscript><link rel="stylesheet" href="styles2.css" media="print" onload="this.media='screen and (min-width: 480px)'">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="banner">Lorem ipsum dolor sit amet</div>
+      </header>
+    </div>
+    <div class="" data-critters-container="">
+      <h1>Hello World!</h1>
+      <p>This is a paragraph</p>
+      <input class="input-field">
+      <div class="contents"></div>
+      <div class="selected active"></div>
+    </div>
+    <footer class=""></footer>
+  
+
+</body></html>

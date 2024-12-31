@@ -7,10 +7,7 @@ readme = "README.md"
 homepage = "https://github.com/michaelhthomas/critters-rs"
 repository = "https://github.com/michaelhthomas/critters-rs"
 edition = "2021"
-include = [
-  "**/*.rs",
-  "Cargo.toml",
-]
+include = ["**/*.rs", "Cargo.toml"]
 
 [lib]
 crate-type = ["rlib", "cdylib"]
@@ -18,6 +15,10 @@ crate-type = ["rlib", "cdylib"]
 [[bin]]
 name = "critters-rs"
 required-features = ["cli"]
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3
 
 [dependencies]
 anyhow = "1.0.89"
@@ -33,8 +34,6 @@ log = "0.4.22"
 markup5ever = "0.11.0"
 regex = "1.10.6"
 serde = "1.0.210"
-tempdir = "0.3.7"
-test-log = "0.2.16"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "2.12.2", default-features = false, optional = true, features = [
   "napi4",
@@ -56,3 +55,9 @@ directory = ["indicatif", "rayon", "walkdir"]
 cli = ["env_logger", "indicatif-log-bridge", "directory"]
 typegen = ["ts-rs"]
 use-napi = ["napi", "napi-derive", "serde_json", "env_logger", "directory"]
+
+[dev-dependencies]
+insta = "1.41.1"
+mock-logger = "0.1.3"
+tempdir = "0.3.7"
+test-log = "0.2.16"
