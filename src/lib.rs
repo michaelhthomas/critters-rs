@@ -383,8 +383,9 @@ impl Critters {
 
     /// Parse the given stylesheet and reduce it to contain only the nodes present in the given document.
     fn process_style(&self, sheet: &str, dom: NodeRef) -> anyhow::Result<String> {
-        // TODO: support container element
-        let critters_container = dom.select_first("body").unwrap();
+        let critters_container = dom
+            .select_first("[data-critters-container]")
+            .unwrap_or_else(|_| dom.select_first("body").unwrap());
         let mut failed_selectors = Vec::new();
         let mut rules_to_remove = HashSet::new();
         let mut critical_keyframe_names: HashSet<String> = HashSet::new();
