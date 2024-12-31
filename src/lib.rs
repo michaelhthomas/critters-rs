@@ -398,7 +398,6 @@ impl Critters {
         // First pass, mark rules not present in the document for removal
         for rule in &mut ast.rules.0 {
             if let CssRule::Style(style_rule) = rule {
-                // TODO: Handle allowed rules
                 let global_pseudo_regex = regex!(r"^::?(before|after)$");
 
                 // Filter selectors based on their usage in the document
@@ -414,6 +413,14 @@ impl Critters {
                             || selector == "body"
                             || global_pseudo_regex.is_match(&selector)
                         {
+                            return true;
+                        }
+
+                        // allow rules
+                        if self.options.allow_rules.iter().any(|exp| match exp {
+                            SelectorMatcher::Regex(regex) => regex.is_match(&selector),
+                            SelectorMatcher::String(exp) => exp == &selector,
+                        }) {
                             return true;
                         }
 
@@ -1176,5 +1183,39 @@ mod tests {
             noscript_link_el.attributes.borrow().get("href"),
             Some("external.css")
         );
+    }
+
+    #[test]
+    fn allow_rules_string() {
+        let critters = Critters::new(CrittersOptions {
+            allow_rules: vec![SelectorMatcher::String(".non-critical".to_string())],
+            ..Default::default()
+        });
+
+        let processed = critters.process(BASIC_HTML).unwrap();
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        assert!(stylesheet.contains(".critical"));
+        assert!(stylesheet.contains(".non-critical"));
+    }
+
+    #[test]
+    fn allow_rules_regex() {
+        let critters = Critters::new(CrittersOptions {
+            allow_rules: vec![SelectorMatcher::Regex(Regex::new("^.non").unwrap())],
+            ..Default::default()
+        });
+
+        let processed = critters.process(BASIC_HTML).unwrap();
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        assert!(stylesheet.contains(".critical"));
+        assert!(stylesheet.contains(".non-critical"));
     }
 }
