@@ -131,6 +131,21 @@ fn does_not_encode_html() {
 }
 
 #[test]
+fn preserves_template_contents() {
+    let critters = Critters::new(Default::default());
+
+    let result = critters
+        .process(&construct_html(
+            "<style>.blue { color: #00f; }</style",
+            r#"<div class="blue"><template>Hello world!</template></div>"#,
+        ))
+        .expect("Failed to process html.");
+
+    assert!(result.contains("Hello world!"));
+    insta::assert_snapshot!(result);
+}
+
+#[test]
 fn should_keep_existing_link_tag_attributes_in_noscript_link() {
     let tmp_dir = create_test_folder(&[("style.css", "h1 { color: #00f; }")]);
 

@@ -1,0 +1,11 @@
+---
+source: tests/critters.rs
+expression: result
+snapshot_kind: text
+---
+<html><head>
+                <style>.blue{color:#00f}</style>
+            </head><body>
+                <div class="blue"><template>Hello world!</template></div>
+            
+        </body></html>
