@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.0...critters-rs-v1.1.1) (2025-01-09)
+
+
+### Bug Fixes
+
+* resolve upstream bug causing template contents to be erased ([2ab0702](https://github.com/michaelhthomas/critters-rs/commit/2ab0702178ca6b9bfa5c4afe1874c510dcd82b5f))
+
 ## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.0...critters-rs-v1.1.0) (2024-12-31)
 
 

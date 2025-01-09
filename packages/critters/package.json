@@ -1,6 +1,6 @@
 {
 	"name": "@critters-rs/critters",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Quickly inline your website's critical CSS.",
 	"author": "Michael Thomas",
 	"license": "Apache-2.0",
