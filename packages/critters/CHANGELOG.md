@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.1.0...critters-v1.1.1) (2025-01-09)
+
+
+### Miscellaneous Chores
+
+* trigger release 1.1.0 ([62130e9](https://github.com/michaelhthomas/critters-rs/commit/62130e9772500cc6f68dac8a45a10a88ff932e73))
+
 ## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.1.0...critters-v1.1.0) (2024-12-31)
 
 

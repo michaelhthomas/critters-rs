@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.1.0...astro-v1.1.1) (2025-01-09)
+
+
+### Miscellaneous Chores
+
+* **astro:** Synchronize critters versions
+
 ## [1.1.0](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.0.2...astro-v1.1.0) (2024-12-31)
 
 
