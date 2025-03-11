@@ -36,7 +36,7 @@
 		"tsup": "^8.3.0"
 	},
 	"peerDependencies": {
-		"astro": "^4.15.9"
+		"astro": "^4 || ^5"
 	},
 	"dependencies": {
 		"@critters-rs/critters": "workspace:^",
