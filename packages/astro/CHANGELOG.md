@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.1.1...astro-v1.1.2) (2025-03-11)
+
+
+### Bug Fixes
+
+* **astro:** use more permissive peer dependency ([3cd1ccf](https://github.com/michaelhthomas/critters-rs/commit/3cd1ccf1d3866973a2f4c9bf80e49f7962a2a851))
+
 ## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.1.0...astro-v1.1.1) (2025-01-09)
 
 

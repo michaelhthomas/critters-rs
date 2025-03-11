@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.1...critters-rs-v1.1.2) (2025-03-11)
+
+
+### Bug Fixes
+
+* use fork of kuchikiki to allow publishing on crates.io ([5cafa0a](https://github.com/michaelhthomas/critters-rs/commit/5cafa0a599de6f7836101d54b64fa01b92ad181a))
+
 ## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.0...critters-rs-v1.1.1) (2025-01-09)
 
 

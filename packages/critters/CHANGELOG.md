@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.1.1...critters-v1.1.2) (2025-03-11)
+
+
+### Miscellaneous Chores
+
+* **critters:** Synchronize critters versions
+
 ## [1.1.1](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.1.0...critters-v1.1.1) (2025-01-09)
 
 

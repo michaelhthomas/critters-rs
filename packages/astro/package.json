@@ -1,6 +1,6 @@
 {
 	"name": "@critters-rs/astro",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"description": "Astro integration for critters-rs. Quickly inline your website's critical CSS.",
 	"author": "Michael Thomas",
 	"license": "Apache-2.0",
