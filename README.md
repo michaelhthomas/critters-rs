@@ -6,8 +6,8 @@ Rapidly inline your site's [critical CSS].
 
 ## Features
 
-- Extremely fast -- written in pure Rust for maximal performance
-- Robust -- uses HTML and CSS parsers from the [Servo](https://servo.org/) project
+- Extremely fast — written in pure Rust for maximal performance
+- Robust — uses HTML and CSS parsers from the [Servo](https://servo.org/) project
 - Integrations with popular frameworks
 - Supports preloading and/or inlining critical fonts
 - Prunes unused CSS keyframes and media queries
