@@ -28,7 +28,7 @@ fancy-regex = "0.13.0"
 indicatif = { version = "0.17.8", features = ["rayon"], optional = true }
 indicatif-log-bridge = { version = "0.2.3", optional = true }
 itertools = "0.13.0"
-michaelhthomas-kuchikiki = "0.8.2"
+michaelhthomas-kuchikiki = "=0.8.3-alpha.1"
 lightningcss = "1.0.0-alpha.59"
 log = "0.4.22"
 markup5ever = "0.12.1"

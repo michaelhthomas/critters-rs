@@ -957,9 +957,9 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "michaelhthomas-kuchikiki"
-version = "0.8.3"
+version = "0.8.3-alpha.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "449f05295cf96ae7f99d9b7a536157912b7c09dd2c034d4a476622d495987443"
+checksum = "90ad685861214d2ac4e32dee9deae752d53032c4cb3744a1698609fdd38c0743"
 dependencies = [
  "cssparser 0.27.2",
  "fastbloom",
