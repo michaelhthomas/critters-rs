@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.2...critters-rs-v1.1.3) (2025-06-15)
+
+
+### Performance Improvements
+
+* bump kichikiki to 0.8.3 ([45f90d9](https://github.com/michaelhthomas/critters-rs/commit/45f90d93da79aa63fd083e5d6f2f2915792db056))
+
 ## [1.1.2](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.1...critters-rs-v1.1.2) (2025-03-11)
 
 
