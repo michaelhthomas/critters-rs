@@ -61,11 +61,23 @@ pub enum KeyframesStrategy {
 }
 
 #[derive(Debug, Clone)]
-pub enum SelectorMatcher {
+pub enum Matcher {
     String(String),
     Regex(Regex),
 }
-impl Serialize for SelectorMatcher {
+impl Matcher {
+    pub fn matches(&self, value: &str) -> bool {
+        match self {
+            Matcher::Regex(regex) => regex.is_match(value),
+            Matcher::String(exp) => exp == value,
+        }
+    }
+}
+
+#[deprecated(note = "Use `Matcher` instead.")]
+pub use Matcher as SelectorMatcher;
+
+impl Serialize for Matcher {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -76,7 +88,7 @@ impl Serialize for SelectorMatcher {
         })
     }
 }
-impl<'de> Deserialize<'de> for SelectorMatcher {
+impl<'de> Deserialize<'de> for Matcher {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -118,7 +130,7 @@ pub struct CrittersOptions {
     /// Remove inlined rules from the external stylesheet
     #[clap(long)]
     pub prune_source: bool,
-    /// Merged inlined stylesheets into a single `<style>` tag
+    /// Merge inlined stylesheets into a single `<style>` tag
     #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub merge_stylesheets: bool,
     /// Glob for matching other stylesheets to be used while looking for critical CSS.
@@ -150,7 +162,13 @@ pub struct CrittersOptions {
     /// Provide a list of selectors that should be included in the critical CSS.
     #[clap(skip)]
     #[cfg_attr(feature = "typegen", ts(as = "Vec<String>"))]
-    pub allow_rules: Vec<SelectorMatcher>,
+    pub allow_rules: Vec<Matcher>,
+    /// List of external stylesheets that should be inlined without an external
+    /// stylesheet reference. Links to these stylesheets will be removed, and
+    /// only the matched selectors will be preserved.
+    #[clap(skip)]
+    #[cfg_attr(feature = "typegen", ts(as = "Vec<String>"))]
+    pub exclude_external: Vec<Matcher>,
 }
 
 /// Statistics resulting from `Critters::process_dir`.
@@ -183,6 +201,7 @@ impl default::Default for CrittersOptions {
             keyframes: Default::default(),
             compress: true,
             allow_rules: Default::default(),
+            exclude_external: Default::default(),
         }
     }
 }
@@ -455,10 +474,12 @@ impl Critters {
                         }
 
                         // allow rules
-                        if self.options.allow_rules.iter().any(|exp| match exp {
-                            SelectorMatcher::Regex(regex) => regex.is_match(&selector),
-                            SelectorMatcher::String(exp) => exp == &selector,
-                        }) {
+                        if self
+                            .options
+                            .allow_rules
+                            .iter()
+                            .any(|m| m.matches(&selector))
+                        {
                             return true;
                         }
 
@@ -679,6 +700,16 @@ impl Critters {
         link.insert_before(style.clone());
 
         // TODO: inline threshold?
+
+        if self
+            .options
+            .exclude_external
+            .iter()
+            .any(|m| m.matches(&href))
+        {
+            link.detach();
+            return Ok(Some(style));
+        }
 
         let body = dom
             .select_first("body")
@@ -999,6 +1030,44 @@ mod tests {
     }
 
     #[test]
+    fn external_stylesheet_exclude() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::BodyPreload,
+            exclude_external: vec![Matcher::Regex(Regex::new("external\\.css$").unwrap())],
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = kuchikiki::parse_html();
+        let dom = parser.one(processed);
+
+        dom.select_first("link[rel=preload]")
+            .expect_err("Unexpected preload link.");
+
+        let stylesheet = dom
+            .select_first("style")
+            .expect("Failed to locate inline stylesheet")
+            .text_contents();
+        assert!(stylesheet.contains(".critical"));
+        assert!(!stylesheet.contains(".non-critical"));
+
+        dom.select_first("link[rel=stylesheet]")
+            .expect_err("Unexpected external stylesheet link.");
+    }
+
+    #[test]
     fn additional_stylesheets() {
         let tmp_dir = create_test_folder(&[(
             "add.css",
@@ -1219,7 +1288,7 @@ mod tests {
     #[test]
     fn allow_rules_string() {
         let critters = Critters::new(CrittersOptions {
-            allow_rules: vec![SelectorMatcher::String(".non-critical".to_string())],
+            allow_rules: vec![Matcher::String(".non-critical".to_string())],
             ..Default::default()
         });
 
@@ -1236,7 +1305,7 @@ mod tests {
     #[test]
     fn allow_rules_regex() {
         let critters = Critters::new(CrittersOptions {
-            allow_rules: vec![SelectorMatcher::Regex(Regex::new("^.non").unwrap())],
+            allow_rules: vec![Matcher::Regex(Regex::new("^.non").unwrap())],
             ..Default::default()
         });
 
