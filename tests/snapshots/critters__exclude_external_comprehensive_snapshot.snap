@@ -1,0 +1,31 @@
+---
+source: tests/critters.rs
+expression: processed
+---
+<html><head>
+                <title>Exclude External Test Page</title>
+           <meta charset="utf-8">
+           <style>body{margin:0;padding:0}.container{max-width:1200px;margin:0 auto}</style><noscript><link rel="stylesheet" href="global.css"></noscript><link rel="preload" href="global.css" onload="this.rel='stylesheet'" as="style">
+           <style>.header{background:#333;color:#fff}.nav-item{padding:10px}.footer{background:#f5f5f5}</style><noscript><link rel="stylesheet" href="components.css"></noscript><link rel="preload" href="components.css" onload="this.rel='stylesheet'" as="style">
+           <style>.vendor-grid{display:grid}</style>
+           <style>.theme-primary{color:#007bff}.theme-secondary{color:#6c757d}</style>
+           <style>.inline-style{font-weight:700}</style>
+            </head>
+            <body>
+                <div class="container">
+               <header class="header">
+                   <nav>
+                       <span class="nav-item">Home</span>
+                       <span class="nav-item">About</span>
+                   </nav>
+               </header>
+               <main>
+                   <div class="vendor-grid">
+                       <div class="theme-primary inline-style">Primary content</div>
+                       <div class="theme-secondary">Secondary content</div>
+                   </div>
+               </main>
+               <footer class="footer">Footer content</footer>
+           </div>
+            
+        </body></html>
