@@ -29,6 +29,7 @@
       nativeBuildInputs = with pkgs; [
         # Rust
         rustToolchain
+        cargo-insta
 
         # Node.js
         nodejs_24
