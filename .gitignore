@@ -1,3 +1,5 @@
+.direnv
+
 # moon
 .moon/cache
 .moon/docker
