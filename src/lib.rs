@@ -784,12 +784,12 @@ mod tests {
 
     use super::*;
 
-    const BASIC_CSS: &'static str = r#"
+    const BASIC_CSS: &str = r#"
         .critical { color: red; }
         .non-critical { color: blue; }
     "#;
 
-    const BASIC_HTML: &'static str = r#"
+    const BASIC_HTML: &str = r#"
         <html>
             <head>
                 <style>
