@@ -1,5 +1,5 @@
 <div align="center">
-	<h1><code>critters_rs</code></h1>
+	<h1><code>critters_rs</code> 🦔</h1>
 </div>
 
 Rapidly inline your site's [critical CSS].
