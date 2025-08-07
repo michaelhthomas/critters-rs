@@ -1050,7 +1050,7 @@ mod tests {
             .process(&html)
             .expect("Failed to inline critical css");
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
 
         dom.select_first("link[rel=preload]")
