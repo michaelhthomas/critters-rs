@@ -68,7 +68,7 @@ impl Serialize for SelectorMatcher {
     {
         serializer.serialize_str(match self {
             Self::Regex(r) => r.as_str(),
-            Self::String(s) => &s,
+            Self::String(s) => s,
         })
     }
 }
@@ -247,7 +247,7 @@ impl Critters {
         }
 
         // Additional stylesheets
-        if self.options.additional_stylesheets.len() > 0 {
+        if !self.options.additional_stylesheets.is_empty() {
             styles.append(&mut self.get_additional_stylesheets(&dom)?);
         }
 
@@ -272,7 +272,7 @@ impl Critters {
         // Serialize back to an HTML string
         let mut result = Vec::new();
         dom.serialize(&mut result)?;
-        return Ok(String::from_utf8(result)?);
+        Ok(String::from_utf8(result)?)
     }
 
     /// Process all HTML files in the configured directory
@@ -358,14 +358,13 @@ impl Critters {
 
         external_sheets
             .iter()
-            .map(|link| {
+            .filter_map(|link| {
                 self.inline_external_stylesheet(link.as_node(), dom)
                     .unwrap_or_else(|e| {
                         error!("Failed to inline external stylesheet. {e}");
                         None
                     })
             })
-            .flatten()
             .collect()
     }
 
@@ -376,8 +375,7 @@ impl Critters {
             .iter()
             .sorted()
             .dedup()
-            .map(|href| self.get_css_asset(href))
-            .flatten()
+            .filter_map(|href| self.get_css_asset(href))
             .map(|css| self.inject_style(&css, dom))
             .collect()
     }
@@ -392,7 +390,7 @@ impl Critters {
         let mut critical_keyframe_names: HashSet<String> = HashSet::new();
         let mut critical_fonts = String::new();
 
-        let mut ast = StyleSheet::parse(&sheet, Default::default())
+        let mut ast = StyleSheet::parse(sheet, Default::default())
             .map_err(|_| anyhow::Error::msg("Failed to parse stylesheet."))?;
 
         // TODO: use a visitor to handle nested rules
@@ -496,8 +494,7 @@ impl Critters {
                             href = href_regex
                                 .captures(&src)
                                 .unwrap()
-                                .map(|m| m.get(2).map(|c| c.as_str().to_string()))
-                                .flatten();
+                                .and_then(|m| m.get(2).map(|c| c.as_str().to_string()));
                         }
                         FontFaceProperty::FontFamily(f) => {
                             family = Some(f.to_css_string(Default::default()).unwrap())
