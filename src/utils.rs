@@ -1,4 +1,4 @@
-use kuchikiki::NodeRef;
+use crate::html::NodeRef;
 use lightningcss::{rules::style::StyleRule, traits::Parse};
 
 /// Locate all the HTML files within a given directory.
@@ -45,7 +45,7 @@ pub trait NodeRefExt {
 }
 impl NodeRefExt for NodeRef {
     fn new_html_element(name: &str, attributes: Vec<(&str, &str)>) -> NodeRef {
-        use kuchikiki::{Attribute, ExpandedName};
+        use crate::html::{Attribute, ExpandedName};
         use markup5ever::{namespace_url, ns, LocalName, QualName};
 
         NodeRef::new_element(

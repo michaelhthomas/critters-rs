@@ -1,6 +1,6 @@
+use html::traits::TendrilSink;
+use html::{NodeData, NodeRef};
 use itertools::Itertools;
-use kuchikiki::traits::TendrilSink;
-use kuchikiki::{NodeData, NodeRef};
 use lightningcss::printer::PrinterOptions;
 use lightningcss::properties::PropertyId;
 use lightningcss::rules::{font_face::FontFaceProperty, keyframes::KeyframesName, CssRule};
@@ -20,6 +20,8 @@ use utils::{is_valid_media_query, regex, NodeRefExt, StyleRuleExt};
 #[cfg(feature = "use-napi")]
 use napi_derive::napi;
 
+#[doc(hidden)]
+pub mod html;
 mod utils;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, clap::ValueEnum)]
@@ -231,7 +233,7 @@ impl Critters {
     /// Process the given HTML, extracting and inlining critical CSS
     fn process_impl(&self, html: &str) -> anyhow::Result<String> {
         // Parse the HTML into a DOM
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(html);
 
         let mut styles = Vec::new();
@@ -839,7 +841,7 @@ mod tests {
 
         let processed = critters.process(BASIC_HTML).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheet = dom.select_first("style").unwrap().text_contents();
 
@@ -870,7 +872,7 @@ mod tests {
 
         let processed = critters.process(&html).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheet = dom.select_first("style").unwrap().text_contents();
 
@@ -900,7 +902,7 @@ mod tests {
 
         let processed = critters.process(&html).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let preload = dom
             .select_first("head > link[rel=preload]")
@@ -933,7 +935,7 @@ mod tests {
             .process(&html)
             .expect("Failed to inline critical css");
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
 
         let preload_link = dom
@@ -981,7 +983,7 @@ mod tests {
 
         let processed = critters.process(BASIC_HTML).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheets: Vec<_> = dom
             .select("style")
@@ -1012,7 +1014,7 @@ mod tests {
 
         let processed = critters.process(BASIC_HTML).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheets: Vec<_> = dom
             .select("style")
@@ -1053,7 +1055,7 @@ mod tests {
             .process(&html)
             .expect("Failed to inline critical css");
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
 
         parser.one(processed)
     }
@@ -1068,7 +1070,7 @@ mod tests {
         let noscript_text_val = noscript_text.as_text().unwrap().borrow().clone();
 
         let ctx_name = QualName::new(None, ns!(html), local_name!("link"));
-        let parser = kuchikiki::parse_fragment(ctx_name, vec![]);
+        let parser = html::parse_fragment(ctx_name, vec![]);
         let noscript_doc = parser.one(noscript_text_val);
         let noscript_child = noscript_doc
             .first_child()
@@ -1192,7 +1194,7 @@ mod tests {
 
         let processed = critters.process(BASIC_HTML).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheet = dom.select_first("style").unwrap().text_contents();
 
@@ -1209,7 +1211,7 @@ mod tests {
 
         let processed = critters.process(BASIC_HTML).unwrap();
 
-        let parser = kuchikiki::parse_html();
+        let parser = html::parse_html();
         let dom = parser.one(processed);
         let stylesheet = dom.select_first("style").unwrap().text_contents();
 

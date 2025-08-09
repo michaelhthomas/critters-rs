@@ -1,8 +1,8 @@
 use std::{fs, io::Write, path::PathBuf};
 
+use critters_rs::html::traits::TendrilSink;
 use critters_rs::{Critters, CrittersOptions, PreloadStrategy};
 use insta::assert_snapshot;
-use kuchikiki::traits::TendrilSink;
 use tempdir::TempDir;
 use test_log::test;
 
@@ -57,7 +57,7 @@ fn basic_usage() {
         .process(&html)
         .expect("Failed to inline critical css");
 
-    let parser = kuchikiki::parse_html();
+    let parser = critters_rs::html::parse_html();
     let dom = parser.one(processed);
 
     let inline_style = dom
