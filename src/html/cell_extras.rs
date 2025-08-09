@@ -62,56 +62,56 @@ use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
 pub trait CellOption {
-	fn is_none(&self) -> bool;
+    fn is_none(&self) -> bool;
 }
 
 impl<T> CellOption for Cell<Option<T>> {
-	#[inline]
-	fn is_none(&self) -> bool {
-		unsafe { (*self.as_ptr()).is_none() }
-	}
+    #[inline]
+    fn is_none(&self) -> bool {
+        unsafe { (*self.as_ptr()).is_none() }
+    }
 }
 
 pub trait CellOptionWeak<T> {
-	fn upgrade(&self) -> Option<Rc<T>>;
-	fn clone_inner(&self) -> Option<Weak<T>>;
+    fn upgrade(&self) -> Option<Rc<T>>;
+    fn clone_inner(&self) -> Option<Weak<T>>;
 }
 
 impl<T> CellOptionWeak<T> for Cell<Option<Weak<T>>> {
-	#[inline]
-	fn upgrade(&self) -> Option<Rc<T>> {
-		unsafe { (*self.as_ptr()).as_ref().and_then(Weak::upgrade) }
-	}
+    #[inline]
+    fn upgrade(&self) -> Option<Rc<T>> {
+        unsafe { (*self.as_ptr()).as_ref().and_then(Weak::upgrade) }
+    }
 
-	#[inline]
-	fn clone_inner(&self) -> Option<Weak<T>> {
-		unsafe { (*self.as_ptr()).clone() }
-	}
+    #[inline]
+    fn clone_inner(&self) -> Option<Weak<T>> {
+        unsafe { (*self.as_ptr()).clone() }
+    }
 }
 
 pub trait CellOptionRc<T> {
-	/// Return `Some` if this `Rc` is the only strong reference count,
-	/// even if there are weak references.
-	fn take_if_unique_strong(&self) -> Option<Rc<T>>;
-	fn clone_inner(&self) -> Option<Rc<T>>;
+    /// Return `Some` if this `Rc` is the only strong reference count,
+    /// even if there are weak references.
+    fn take_if_unique_strong(&self) -> Option<Rc<T>>;
+    fn clone_inner(&self) -> Option<Rc<T>>;
 }
 
 impl<T> CellOptionRc<T> for Cell<Option<Rc<T>>> {
-	#[inline]
-	fn take_if_unique_strong(&self) -> Option<Rc<T>> {
-		unsafe {
-			match *self.as_ptr() {
-				None => None,
-				Some(ref rc) if Rc::strong_count(rc) > 1 => None,
-				// Not borrowing the `Rc<T>` here
-				// as we would be invalidating that borrow while it is outstanding:
-				Some(_) => self.take(),
-			}
-		}
-	}
+    #[inline]
+    fn take_if_unique_strong(&self) -> Option<Rc<T>> {
+        unsafe {
+            match *self.as_ptr() {
+                None => None,
+                Some(ref rc) if Rc::strong_count(rc) > 1 => None,
+                // Not borrowing the `Rc<T>` here
+                // as we would be invalidating that borrow while it is outstanding:
+                Some(_) => self.take(),
+            }
+        }
+    }
 
-	#[inline]
-	fn clone_inner(&self) -> Option<Rc<T>> {
-		unsafe { (*self.as_ptr()).clone() }
-	}
+    #[inline]
+    fn clone_inner(&self) -> Option<Rc<T>> {
+        unsafe { (*self.as_ptr()).clone() }
+    }
 }

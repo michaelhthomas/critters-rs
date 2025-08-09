@@ -253,9 +253,7 @@ impl selectors::Element for NodeDataRef<ElementData> {
         self.attributes
             .borrow()
             .get(local_name!("id"))
-            .is_some_and(|id_attr| {
-                case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes())
-            })
+            .is_some_and(|id_attr| case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes()))
     }
 
     #[inline]
