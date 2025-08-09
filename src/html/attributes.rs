@@ -73,7 +73,7 @@ impl Attributes {
         match (&self.class_cache, case_sensitivity) {
             (Some(ClassCache::Single), case_sensitivity) => self
                 .get(local_name!("class"))
-                .map_or(false, |class| case_sensitivity.eq(class.as_bytes(), name)),
+                .is_some_and(|class| case_sensitivity.eq(class.as_bytes(), name)),
             (Some(ClassCache::Bloom(bloom_filter)), CaseSensitivity::CaseSensitive) => {
                 if bloom_filter.contains(name) {
                     self.has_class_impl(name, case_sensitivity)
