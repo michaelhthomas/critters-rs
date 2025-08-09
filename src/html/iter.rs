@@ -456,10 +456,12 @@ pub trait ElementIterator: Sized + Iterator<Item = NodeDataRef<ElementData>> {
     /// Filter this element iterator to elements maching the given selectors.
     #[inline]
     fn select(self, selectors: &str) -> Result<Select<Self>, ()> {
-        Selectors::compile(selectors).map(|s| Select {
-            iter: self,
-            selectors: s,
-        })
+        Selectors::compile(selectors)
+            .map(|s| Select {
+                iter: self,
+                selectors: s,
+            })
+            .map_err(|_| ())
     }
 }
 

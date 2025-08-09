@@ -334,11 +334,11 @@ pub struct Specificity(u32);
 impl Selectors {
     /// Compile a list of selectors. This may fail on syntax errors or unsupported selectors.
     #[inline]
-    pub fn compile(s: &str) -> Result<Selectors, ()> {
+    pub fn compile(s: &str) -> Result<Selectors, ParseError<'_, SelectorParseErrorKind<'_>>> {
         let mut input = cssparser::ParserInput::new(s);
         match SelectorList::parse(&KuchikiParser, &mut cssparser::Parser::new(&mut input)) {
             Ok(list) => Ok(Selectors(list.0.into_iter().map(Selector).collect())),
-            Err(_) => Err(()),
+            Err(err) => Err(err),
         }
     }
 
@@ -384,7 +384,7 @@ impl ::std::str::FromStr for Selectors {
     type Err = ();
     #[inline]
     fn from_str(s: &str) -> Result<Selectors, ()> {
-        Selectors::compile(s)
+        Selectors::compile(s).map_err(|_| ())
     }
 }
 
