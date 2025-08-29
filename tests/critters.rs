@@ -246,3 +246,21 @@ fn prevent_injection_via_media_attr() {
     );
     assert_snapshot!(result);
 }
+
+#[test]
+fn run_on_rust_wikipedia() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_files");
+
+    let critters = Critters::new(CrittersOptions {
+        reduce_inline_styles: false,
+        external: false,
+        additional_stylesheets: vec!["rust_wikipedia.css".to_string()],
+        path: path.to_string_lossy().to_string(),
+        ..Default::default()
+    });
+
+    let html = fs::read_to_string(path.join("rust_wikipedia.html")).unwrap();
+
+    let result = critters.process(&html).expect("Failed to process html.");
+    insta::assert_snapshot!(result);
+}
