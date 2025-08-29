@@ -1,24 +1,6 @@
 use kuchikiki::NodeRef;
 use lightningcss::{rules::style::StyleRule, traits::Parse};
 
-/// Implementation of the Szudzik pairing function.
-///
-/// A pairing function is a bijection from N x N -> N. Szudizik's algorithm
-/// has the most efficient possible value packing, with the maximum pair size
-/// being (sqrt(MAX_INTEGER), sqrt(MAX_INTEGER)).
-///
-/// [Reference](http://www.szudzik.com/ElegantPairing.pdf)
-pub fn szudzik_pair(x: impl Into<u64>, y: impl Into<u64>) -> u64 {
-    let x: u64 = x.into();
-    let y: u64 = y.into();
-
-    if x >= y {
-        (x * x) + x + y
-    } else {
-        (y * y) + x
-    }
-}
-
 /// Locate all the HTML files within a given directory.
 #[cfg(feature = "directory")]
 pub fn locate_html_files(path: &str) -> anyhow::Result<Vec<std::path::PathBuf>> {
@@ -43,14 +25,17 @@ pub fn locate_html_files(path: &str) -> anyhow::Result<Vec<std::path::PathBuf>> 
 
 pub trait StyleRuleExt {
     /// Generates a unique identifier that can be used to identify the rule in later passes of the AST.
-    fn id(&self) -> u64;
+    fn id(&self) -> u128;
 }
 impl StyleRuleExt for StyleRule<'_> {
-    fn id(&self) -> u64 {
-        szudzik_pair(
-            self.loc.source_index,
-            szudzik_pair(self.loc.line, self.loc.column),
-        )
+    fn id(&self) -> u128 {
+        let mut packed_value: u128 = 0;
+
+        packed_value |= (self.loc.source_index as u128) << 64;
+        packed_value |= (self.loc.line as u128) << 32;
+        packed_value |= self.loc.column as u128;
+
+        packed_value
     }
 }
 
