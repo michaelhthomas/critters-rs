@@ -6,14 +6,15 @@ use cssparser::{self, CowRcStr, ParseError, SourceLocation, ToCss};
 use html5ever::{local_name, namespace_url, ns, LocalName, Namespace};
 use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
 use selectors::context::QuirksMode;
-use selectors::parser::SelectorParseErrorKind;
 use selectors::parser::{
-    NonTSPseudoClass, Parser, Selector as GenericSelector, SelectorImpl, SelectorList,
+    AncestorHashes, NonTSPseudoClass, Parser, Selector as GenericSelector, SelectorImpl,
+    SelectorList,
 };
+use selectors::parser::{SelectorIter, SelectorParseErrorKind};
 use selectors::{self, matching, OpaqueElement};
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KuchikiSelectors;
 
 impl SelectorImpl for KuchikiSelectors {
@@ -320,7 +321,186 @@ impl selectors::Element for NodeDataRef<ElementData> {
 pub struct Selectors(pub Vec<Selector>);
 
 /// A pre-compiled CSS Selector.
+#[derive(Clone, PartialEq, Eq)]
 pub struct Selector(GenericSelector<KuchikiSelectors>);
+
+impl Selector {
+    /// Returns an iterator over this selector in matching order (right-to-left).
+    /// When a combinator is reached, the iterator will return None, and
+    /// next_sequence() may be called to continue to the next sequence.
+    pub fn iter(&self) -> SelectorIter<'_, KuchikiSelectors> {
+        self.0.iter()
+    }
+
+    /// Returns whether the given element matches this selector.
+    #[inline]
+    pub fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            None,
+            QuirksMode::NoQuirks,
+        );
+        matching::matches_selector(&self.0, 0, None, element, &mut context, &mut |_, _| {})
+    }
+
+    /// Returns whether the given element matches this selector using the given matching context.
+    #[inline]
+    pub fn matches_with_context(
+        &self,
+        element: &NodeDataRef<ElementData>,
+        hashes: Option<&AncestorHashes>,
+        context: &mut matching::MatchingContext<KuchikiSelectors>,
+    ) -> bool {
+        matching::matches_selector(&self.0, 0, hashes, element, context, &mut |_, _| {})
+    }
+
+    /// Return the specificity of this selector.
+    pub fn specificity(&self) -> Specificity {
+        Specificity(self.0.specificity())
+    }
+
+    pub(crate) fn ancestor_hashes(&self) -> AncestorHashes {
+        AncestorHashes::new(&self.0, QuirksMode::NoQuirks)
+    }
+}
+
+/// Implements hashing for CSS selectors. Unfortunately, the `selectors` crate does not provide a
+/// direct way to hash a selector, so we have to do some manual labor.
+mod hashing {
+    use crate::html::select::KuchikiSelectors;
+    use selectors::attr::NamespaceConstraint;
+    use std::hash::Hash;
+
+    fn hash_component<H: std::hash::Hasher>(
+        c: &selectors::parser::Component<KuchikiSelectors>,
+        state: &mut H,
+    ) {
+        std::mem::discriminant(c).hash(state);
+        match c {
+            selectors::parser::Component::Combinator(combinator) => {
+                std::mem::discriminant(combinator).hash(state);
+            }
+            selectors::parser::Component::DefaultNamespace(ns) => ns.hash(state),
+            selectors::parser::Component::Namespace(pre, url) => {
+                pre.hash(state);
+                url.hash(state);
+            }
+            selectors::parser::Component::LocalName(local_name) => {
+                local_name.name.hash(state);
+                local_name.lower_name.hash(state);
+            }
+            selectors::parser::Component::ID(id) => id.hash(state),
+            selectors::parser::Component::Class(class) => class.hash(state),
+            selectors::parser::Component::AttributeInNoNamespaceExists {
+                local_name,
+                local_name_lower,
+            } => {
+                local_name.hash(state);
+                local_name_lower.hash(state);
+            }
+            selectors::parser::Component::AttributeInNoNamespace {
+                local_name,
+                operator,
+                value,
+                case_sensitivity,
+                never_matches,
+            } => {
+                local_name.hash(state);
+                std::mem::discriminant(operator).hash(state);
+                value.hash(state);
+                std::mem::discriminant(case_sensitivity).hash(state);
+                never_matches.hash(state);
+            }
+            selectors::parser::Component::AttributeOther(attr_selector_with_optional_namespace) => {
+                if let Some(namespace) = &attr_selector_with_optional_namespace.namespace {
+                    std::mem::discriminant(namespace).hash(state);
+                    match &namespace {
+                        NamespaceConstraint::Specific(url) => url.hash(state),
+                        NamespaceConstraint::Any => {}
+                    }
+                }
+                attr_selector_with_optional_namespace.local_name.hash(state);
+                attr_selector_with_optional_namespace
+                    .local_name_lower
+                    .hash(state);
+                std::mem::discriminant(&attr_selector_with_optional_namespace.operation)
+                    .hash(state);
+                match &attr_selector_with_optional_namespace.operation {
+                    selectors::attr::ParsedAttrSelectorOperation::WithValue {
+                        operator,
+                        case_sensitivity,
+                        expected_value,
+                    } => {
+                        std::mem::discriminant(operator).hash(state);
+                        std::mem::discriminant(case_sensitivity).hash(state);
+                        expected_value.hash(state);
+                    }
+                    selectors::attr::ParsedAttrSelectorOperation::Exists => {}
+                }
+                attr_selector_with_optional_namespace
+                    .never_matches
+                    .hash(state);
+            }
+            selectors::parser::Component::Negation(thin_boxed_slice) => {
+                thin_boxed_slice
+                    .iter()
+                    .for_each(|c| hash_component(c, state));
+            }
+            selectors::parser::Component::NthChild(i, j) => {
+                i.hash(state);
+                j.hash(state);
+            }
+            selectors::parser::Component::NthLastChild(i, j) => {
+                i.hash(state);
+                j.hash(state);
+            }
+            selectors::parser::Component::NthOfType(i, j) => {
+                i.hash(state);
+                j.hash(state);
+            }
+            selectors::parser::Component::NthLastOfType(i, j) => {
+                i.hash(state);
+                j.hash(state);
+            }
+            selectors::parser::Component::NonTSPseudoClass(class) => class.hash(state),
+            selectors::parser::Component::Slotted(selector) => hash_selector(selector, state),
+            selectors::parser::Component::Part(items) => {
+                items.iter().for_each(|item| item.hash(state))
+            }
+            selectors::parser::Component::Host(selector) => {
+                if let Some(selector) = selector {
+                    hash_selector(selector, state)
+                }
+            }
+            selectors::parser::Component::PseudoElement(el) => el.hash(state),
+            selectors::parser::Component::ExplicitAnyNamespace => {}
+            selectors::parser::Component::ExplicitNoNamespace => {}
+            selectors::parser::Component::ExplicitUniversalType => {}
+            selectors::parser::Component::FirstChild => {}
+            selectors::parser::Component::LastChild => {}
+            selectors::parser::Component::OnlyChild => {}
+            selectors::parser::Component::Root => {}
+            selectors::parser::Component::Empty => {}
+            selectors::parser::Component::Scope => {}
+            selectors::parser::Component::FirstOfType => {}
+            selectors::parser::Component::LastOfType => {}
+            selectors::parser::Component::OnlyOfType => {}
+        }
+    }
+
+    pub fn hash_selector<H: std::hash::Hasher>(
+        selector: &selectors::parser::Selector<KuchikiSelectors>,
+        state: &mut H,
+    ) {
+        selector.iter().for_each(|c| hash_component(c, state));
+    }
+}
+impl std::hash::Hash for Selector {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        hashing::hash_selector(&self.0, state);
+    }
+}
 
 /// The specificity of a selector.
 ///
@@ -358,25 +538,6 @@ impl Selectors {
             iter,
             selectors: self,
         }
-    }
-}
-
-impl Selector {
-    /// Returns whether the given element matches this selector.
-    #[inline]
-    pub fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
-        let mut context = matching::MatchingContext::new(
-            matching::MatchingMode::Normal,
-            None,
-            None,
-            QuirksMode::NoQuirks,
-        );
-        matching::matches_selector(&self.0, 0, None, element, &mut context, &mut |_, _| {})
-    }
-
-    /// Return the specificity of this selector.
-    pub fn specificity(&self) -> Specificity {
-        Specificity(self.0.specificity())
     }
 }
 
