@@ -171,4 +171,9 @@ impl Attributes {
     pub fn remove<A: Into<LocalName>>(&mut self, local_name: A) -> Option<Attribute> {
         self.map.swap_remove(&ExpandedName::new(ns!(), local_name))
     }
+
+    /// Like IndexMap::keys
+    pub fn keys(&self) -> impl Iterator<Item = &LocalName> {
+        self.map.keys().map(|expanded_name| &expanded_name.local)
+    }
 }

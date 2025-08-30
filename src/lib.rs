@@ -20,6 +20,8 @@ use utils::{is_valid_media_query, regex, NodeRefExt, StyleRuleExt};
 #[cfg(feature = "use-napi")]
 use napi_derive::napi;
 
+use crate::html::{style_calculation, Selectors};
+
 #[doc(hidden)]
 pub mod html;
 mod utils;
@@ -395,6 +397,39 @@ impl Critters {
         let mut ast = StyleSheet::parse(sheet, Default::default())
             .map_err(|_| anyhow::Error::msg("Failed to parse stylesheet."))?;
 
+        // Precompute list of used selectors
+        let all_selectors = ast
+            .rules
+            .0
+            .iter()
+            .filter_map(|rule| match rule {
+                CssRule::Style(style_rule) => Some(style_rule.selectors.clone()),
+                _ => None,
+            })
+            .filter_map(|selectors| {
+                match Selectors::compile(
+                    &selectors
+                        .to_css_string(Default::default())
+                        .expect("Failed to write selector to string"),
+                ) {
+                    Ok(selectors) => Some(selectors),
+                    Err(err) => {
+                        failed_selectors.push(format!("{} -> {:?}", selectors, err));
+                        None
+                    }
+                }
+            })
+            .flat_map(|selectors| selectors.0)
+            .collect::<HashSet<_>>();
+
+        let used_selectors = style_calculation::calculate_styles_for_tree(
+            &critters_container,
+            all_selectors.clone(),
+        )
+        .iter()
+        .map(|sel| sel.to_string())
+        .collect::<HashSet<_>>();
+
         // TODO: use a visitor to handle nested rules
         // First pass, mark rules not present in the document for removal
         for rule in &mut ast.rules.0 {
@@ -426,15 +461,9 @@ impl Critters {
                         }
 
                         // check DOM for elements matching selector
-                        match critters_container.as_node().select(&selector) {
-                            // selector matches at least once
-                            Ok(mut iter) => iter.next().is_some(),
-                            Err(_) => {
-                                failed_selectors
-                                    .push(format!("{} -> {}", &selector, "Invalid syntax"));
-                                false
-                            }
-                        }
+                        // TODO: consider including failed selectors (mainly pseudo selectors)
+                        // by inverting this check to exclude unused selectors
+                        used_selectors.contains(&selector)
                     })
                     .cloned()
                     .collect::<Vec<_>>();
