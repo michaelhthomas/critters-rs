@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.3...critters-rs-v1.1.4) (2025-08-30)
+
+
+### Bug Fixes
+
+* avoid integer overflow from szudzik pairing on large inputs ([4f7827a](https://github.com/michaelhthomas/critters-rs/commit/4f7827a37c6f224473544b72d796e1e811a6d681))
+
 ## [1.1.3](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.2...critters-rs-v1.1.3) (2025-06-15)
 
 
