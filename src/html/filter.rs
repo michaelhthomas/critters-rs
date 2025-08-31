@@ -87,6 +87,11 @@ impl StyleBloom {
         &self.filter
     }
 
+    /// Get the current depth of ancestor elements in the filter
+    pub fn traversal_depth(&self) -> usize {
+        self.elements.len()
+    }
+
     /// Push an element to the bloom filter, knowing that it's a child of the
     /// last element parent.
     pub fn push(&mut self, element: NodeDataRef<ElementData>) {

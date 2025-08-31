@@ -218,30 +218,6 @@ impl ElementExtensions for NodeDataRef<ElementData> {
     }
 }
 
-fn calculate_styles_for_subtree<'a>(
-    element: &NodeDataRef<ElementData>,
-    rule_set: &'a RuleSet,
-    bloom: &mut StyleBloom,
-    matching_rules: &mut HashSet<&'a Rule>,
-) {
-    // Calculate matching rules for current element
-    matching_rules.extend(calculate_matching_rules(element, rule_set, bloom));
-
-    // Update bloom filter
-    bloom.push(element.clone());
-
-    // Process children
-    for child in element.as_node().children() {
-        if let Some(child_element) = child.into_element_ref() {
-            calculate_styles_for_subtree(&child_element, rule_set, bloom, matching_rules);
-        }
-    }
-
-    let popped = bloom.pop();
-
-    debug_assert_eq!(element, &popped.unwrap());
-}
-
 /// Calculates matching styles for all elements in a DOM tree.
 ///
 /// Returns a mapping from elements to their matching CSS rules,
@@ -256,7 +232,28 @@ pub fn calculate_styles_for_tree(
 
     let mut rules = HashSet::new();
 
-    calculate_styles_for_subtree(root, &rule_set, &mut bloom, &mut rules);
+    let mut stack: Vec<(NodeDataRef<ElementData>, usize)> =
+        vec![(root.clone(), bloom.traversal_depth())];
+
+    while let Some((el, depth)) = stack.pop() {
+        // If we have ascended, update the bloom filter
+        while bloom.traversal_depth() > depth {
+            bloom.pop();
+        }
+
+        rules.extend(calculate_matching_rules(&el, &rule_set, &mut bloom));
+
+        // Update bloom filter
+        bloom.push(el.clone());
+        let depth = bloom.traversal_depth();
+
+        stack.extend(
+            el.as_node()
+                .children()
+                .filter_map(|c| c.into_element_ref())
+                .map(|c| (c, depth)),
+        );
+    }
 
     rules
         .into_iter()
