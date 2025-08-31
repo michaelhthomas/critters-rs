@@ -30,6 +30,7 @@
         # Rust
         rustToolchain
         cargo-insta
+        cargo-flamegraph
 
         # Node.js
         nodejs_24
