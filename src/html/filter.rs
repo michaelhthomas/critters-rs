@@ -36,7 +36,7 @@ struct PushedElement {
 /// selectors.
 #[inline]
 pub fn is_attr_name_excluded_from_filter(name: &LocalName) -> bool {
-    *name == local_name!("class") || *name == local_name!("id") || *name == local_name!("style")
+    name == &local_name!("class") || name == &local_name!("id") || name == &local_name!("style")
 }
 
 /// Gather all relevant hash for fast-reject filters from an element.
@@ -49,15 +49,13 @@ where
 
     let attrs = element.attributes.borrow();
 
-    if let Some(id) = attrs.get("id") {
+    if let Some(id) = attrs.get(local_name!("id")) {
         f(Atom::<html5ever::LocalNameStaticSet>::from(id).get_hash());
     }
 
-    if let Some(class) = attrs.get("class") {
-        class
-            .split_whitespace()
-            .for_each(|class| f(Atom::<html5ever::LocalNameStaticSet>::from(class).get_hash()));
-    }
+    attrs.class_list.iter().for_each(|class| {
+        f(Atom::<html5ever::LocalNameStaticSet>::from(class.as_str()).get_hash())
+    });
 
     attrs.keys().for_each(|name| {
         if !is_attr_name_excluded_from_filter(name) {
