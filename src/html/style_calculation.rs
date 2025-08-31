@@ -5,7 +5,7 @@
 
 use crate::html::filter::StyleBloom;
 use crate::html::{ElementData, NodeDataRef, Selector};
-use html5ever::LocalName;
+use html5ever::{local_name, LocalName};
 use selectors::context::{MatchingContext, MatchingMode};
 use selectors::parser::{AncestorHashes, Component};
 use std::collections::{HashMap, HashSet};
@@ -117,7 +117,7 @@ impl RuleSet {
         rules.extend(self.universal_rules.iter());
 
         // Check ID rules
-        if let Some(id) = attributes.get("id") {
+        if let Some(id) = attributes.get(local_name!("id")) {
             if let Some(id_rules) = self.id_rules.get(id) {
                 rules.extend(id_rules.iter());
             }
