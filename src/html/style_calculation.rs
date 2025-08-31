@@ -5,6 +5,7 @@
 
 use crate::html::filter::StyleBloom;
 use crate::html::{ElementData, NodeDataRef, Selector};
+use html5ever::LocalName;
 use selectors::context::{MatchingContext, MatchingMode};
 use selectors::parser::{AncestorHashes, Component};
 use std::collections::{HashMap, HashSet};
@@ -49,7 +50,7 @@ struct RuleSet {
     /// Rules indexed by class selectors
     pub class_rules: HashMap<String, Vec<Rule>>,
     /// Rules indexed by tag selectors
-    pub tag_rules: HashMap<String, Vec<Rule>>,
+    pub tag_rules: HashMap<LocalName, Vec<Rule>>,
     /// Universal rules and other selectors that can't be indexed
     pub universal_rules: Vec<Rule>,
     /// Total rule count for performance tracking
@@ -74,7 +75,7 @@ impl RuleSet {
                 self.class_rules.entry(class).or_default().push(rule);
             }
             KeySelector::Tag(tag) => {
-                self.tag_rules.entry(tag).or_default().push(rule);
+                self.tag_rules.entry(tag.into()).or_default().push(rule);
             }
             KeySelector::Universal => {
                 self.universal_rules.push(rule);
@@ -110,27 +111,28 @@ impl RuleSet {
     /// This performs fast O(1) hash lookups rather than scanning all rules.
     pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> Vec<&Rule> {
         let mut rules = Vec::new();
+        let attributes = element.attributes.borrow();
 
         // Always check universal rules
         rules.extend(self.universal_rules.iter());
 
         // Check ID rules
-        if let Some(id) = element.get_id() {
-            if let Some(id_rules) = self.id_rules.get(&id) {
+        if let Some(id) = attributes.get("id") {
+            if let Some(id_rules) = self.id_rules.get(id) {
                 rules.extend(id_rules.iter());
             }
         }
 
         // Check class rules
-        for class in element.get_classes() {
-            if let Some(class_rules) = self.class_rules.get(&class) {
+        for class in &attributes.class_list {
+            if let Some(class_rules) = self.class_rules.get(class) {
                 rules.extend(class_rules.iter());
             }
         }
 
         // Check tag rules
-        let tag_name = element.name.local.to_string();
-        if let Some(tag_rules) = self.tag_rules.get(&tag_name) {
+        let tag_name = &element.name.local;
+        if let Some(tag_rules) = self.tag_rules.get(tag_name) {
             rules.extend(tag_rules.iter());
         }
 
@@ -192,30 +194,6 @@ fn calculate_matching_rules<'a>(
         .collect();
 
     matching_rules
-}
-
-trait ElementExtensions {
-    fn get_id(&self) -> Option<String>;
-    fn get_classes(&self) -> HashSet<String>;
-}
-
-impl ElementExtensions for NodeDataRef<ElementData> {
-    fn get_id(&self) -> Option<String> {
-        self.attributes.borrow().get("id").map(|s| s.to_string())
-    }
-
-    fn get_classes(&self) -> HashSet<String> {
-        self.attributes
-            .borrow()
-            .get("class")
-            .map(|class_str| {
-                class_str
-                    .split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
 }
 
 /// Calculates matching styles for all elements in a DOM tree.
