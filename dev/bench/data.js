@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756570791246,
+  "lastUpdate": 1756700163239,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -89,6 +89,36 @@ window.BENCHMARK_DATA = {
             "name": "inline_rust_wikipedia",
             "value": 338267471,
             "range": "± 6833363",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michaelhthomas@outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "committer": {
+            "email": "michaelhthomas@Outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "distinct": true,
+          "id": "ab92f72ba79b83149fa39509f903d51add5cb478",
+          "message": "dev: add tools for performance tracing",
+          "timestamp": "2025-09-01T00:12:40-04:00",
+          "tree_id": "1d6db1686618266147a5ad2a7f2d658de63e2a48",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/ab92f72ba79b83149fa39509f903d51add5cb478"
+        },
+        "date": 1756700162356,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "inline_rust_wikipedia",
+            "value": 75805970,
+            "range": "± 422969",
             "unit": "ns/iter"
           }
         ]
