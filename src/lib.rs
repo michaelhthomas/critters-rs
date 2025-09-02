@@ -84,9 +84,11 @@ impl<'de> Deserialize<'de> for SelectorMatcher {
         let s = String::deserialize(deserializer)?;
 
         if s.starts_with('/') && s.ends_with('/') {
-            Regex::new(&s).map(Self::Regex).map_err(|e| {
-                serde::de::Error::custom(format!("Failed to parse regular expression. {e}"))
-            })
+            Regex::new(&s[1..s.len() - 1])
+                .map(Self::Regex)
+                .map_err(|e| {
+                    serde::de::Error::custom(format!("Failed to parse regular expression. {e}"))
+                })
         } else {
             Ok(Self::String(s))
         }
