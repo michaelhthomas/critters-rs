@@ -1,2 +1,8 @@
 packages:
   - ./packages/*
+
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@moonrepo/cli'
+  - esbuild
+  - sharp
