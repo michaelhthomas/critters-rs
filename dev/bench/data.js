@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756842501172,
+  "lastUpdate": 1756844480422,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -177,6 +177,34 @@ window.BENCHMARK_DATA = {
             "name": "inline_rust_wikipedia",
             "value": 75970921,
             "range": "± 917324",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michael@cognitoforms.com",
+            "name": "Michael Thomas"
+          },
+          "committer": {
+            "email": "michael@cognitoforms.com",
+            "name": "Michael Thomas"
+          },
+          "distinct": true,
+          "id": "8ae86687ce74f801babe3e01c135339057cba841",
+          "message": "fix: trim slashes when deserializing regular expression matchers",
+          "timestamp": "2025-09-02T16:17:50-04:00",
+          "tree_id": "ca44dd4c666e480356d91664da3ccda2e63bcb32",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/8ae86687ce74f801babe3e01c135339057cba841"
+        },
+        "date": 1756844480086,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "inline_rust_wikipedia",
+            "value": 75314536,
+            "range": "± 463692",
             "unit": "ns/iter"
           }
         ]
