@@ -15,8 +15,10 @@
 			"package.json",
 			"pnpm-lock.yaml",
 			"packages/critters-rs",
-			"test-files/",
-			"test-files-run/"
+			"test_files/",
+			"tests/src/",
+			".release-please-manifest.json",
+			".zed/"
 		]
 	},
 	"formatter": {
