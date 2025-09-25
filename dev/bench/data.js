@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756844480422,
+  "lastUpdate": 1758819033879,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -205,6 +205,36 @@ window.BENCHMARK_DATA = {
             "name": "inline_rust_wikipedia",
             "value": 75314536,
             "range": "± 463692",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michaelhthomas@outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "committer": {
+            "email": "michaelhthomas@outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "distinct": true,
+          "id": "74b98b4a737e4e6977ca78341611ee656041becd",
+          "message": "dev: add corepack to flake",
+          "timestamp": "2025-09-25T12:42:38-04:00",
+          "tree_id": "818bc3199b135a8d70ae8713c48bf6bbeec947a4",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/74b98b4a737e4e6977ca78341611ee656041becd"
+        },
+        "date": 1758819033394,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "inline_rust_wikipedia",
+            "value": 78340588,
+            "range": "± 1270017",
             "unit": "ns/iter"
           }
         ]
