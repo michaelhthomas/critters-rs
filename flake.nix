@@ -34,6 +34,7 @@
 
         # Node.js
         nodejs_24
+        corepack_24
         pnpm
 
         # Build tools for native dependencies
