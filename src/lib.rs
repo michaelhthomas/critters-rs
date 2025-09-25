@@ -132,7 +132,7 @@ pub struct CrittersOptions {
     /// Which preload strategy to use.
     #[clap(long, default_value = "body-preload")]
     pub preload: PreloadStrategy,
-    /// Add <noscript> fallback to JS-based strategies.
+    /// Add `<noscript>` fallback to JS-based strategies.
     #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
     pub noscript_fallback: bool,
     /// Inline critical font-face rules.
