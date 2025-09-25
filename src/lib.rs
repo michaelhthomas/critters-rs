@@ -1,3 +1,34 @@
+//! # critters-rs
+//!
+//! A fast and efficient critical CSS extraction library for Rust, inspired by Google Chrome's Critters.
+//!
+//! Critical CSS extraction involves analyzing HTML documents to identify which CSS rules are actually
+//! used on the page, inlining only those critical styles while deferring the loading of non-critical
+//! styles. This significantly improves page load performance by reducing render-blocking CSS.
+//!
+//! ## Features
+//!
+//! - **HTML parsing and CSS extraction**: Processes HTML documents to identify critical CSS selectors
+//! - **Multiple preload strategies**: Configurable strategies for handling non-critical CSS (body-preload, media, swap, etc.)
+//! - **Font preloading**: Automatic detection and preloading of critical fonts
+//! - **Keyframe optimization**: Intelligent handling of CSS animations and keyframes
+//! - **External stylesheet support**: Processes both inline styles and external CSS files
+//! - **High performance**: Built with Rust for speed and efficiency
+//!
+//! ## Basic Usage
+//!
+//! ```rust,no_run
+#![doc = include_str!("../examples/basic_usage.rs")]
+//! ```
+//!
+//! ## Advanced Configuration
+//!
+//! See [`CrittersOptions`] for all available configuration options.
+//!
+//! ```rust,no_run
+#![doc = include_str!("../examples/advanced_config.rs")]
+//! ```
+
 use html::traits::TendrilSink;
 use html::{NodeData, NodeRef};
 use itertools::Itertools;
