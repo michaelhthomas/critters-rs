@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.3...critters-rs-v1.2.0) (2025-09-25)
+
+
+### Features
+
+* add exclude_external option ([#14](https://github.com/michaelhthomas/critters-rs/issues/14)) ([8ceb30e](https://github.com/michaelhthomas/critters-rs/commit/8ceb30eadc0413f6d5789dc31612e4fb3ae586f7))
+
+
+### Bug Fixes
+
+* avoid integer overflow from szudzik pairing on large inputs ([4f7827a](https://github.com/michaelhthomas/critters-rs/commit/4f7827a37c6f224473544b72d796e1e811a6d681))
+* trim slashes when deserializing regular expression matchers ([8ae8668](https://github.com/michaelhthomas/critters-rs/commit/8ae86687ce74f801babe3e01c135339057cba841))
+
+
+### Performance Improvements
+
+* optimized filtering of selector list ([54355e4](https://github.com/michaelhthomas/critters-rs/commit/54355e4ee7e0618e2e7ffb1059e6ecce933b58fe))
+* store class list separately from other attributes ([72d815b](https://github.com/michaelhthomas/critters-rs/commit/72d815b595ebbd4f23fabce7acc3dbb463b37ae4))
+* **style_calculation:** precompute "id" local name in hot path ([dcdbe73](https://github.com/michaelhthomas/critters-rs/commit/dcdbe73a9565845754846784ded2f4bf373c289c))
+
 ## [1.1.3](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.2...critters-rs-v1.1.3) (2025-06-15)
 
 
