@@ -154,8 +154,9 @@ pub struct CrittersOptions {
 }
 
 /// Statistics resulting from `Critters::process_dir`.
-#[cfg_attr(feature = "use-napi", napi)]
 #[derive(Debug)]
+#[cfg(any(feature = "cli", feature = "use-napi"))]
+#[cfg_attr(feature = "use-napi", napi)]
 pub struct CrittersDirectoryStats {
     /// Total duration of processing, in seconds
     pub time_sec: f64,
