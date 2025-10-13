@@ -308,10 +308,15 @@ impl Critters {
             styles.append(&mut self.get_additional_stylesheets(&dom)?);
         }
 
+        // Select the critters container once for all stylesheets
+        let critters_container = dom
+            .select_first("[data-critters-container]")
+            .unwrap_or_else(|_| dom.select_first("body").unwrap());
+
         // Extract and inline critical CSS
         debug!("Inlining {} stylesheets.", styles.len());
         for style in styles.iter() {
-            let res = self.process_style_el(style, dom.clone());
+            let res = self.process_style_el(style, dom.clone(), &critters_container);
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
                 error!(
@@ -438,10 +443,12 @@ impl Critters {
     }
 
     /// Parse the given stylesheet and reduce it to contain only the nodes present in the given document.
-    fn process_style(&self, sheet: &str, dom: NodeRef) -> anyhow::Result<String> {
-        let critters_container = dom
-            .select_first("[data-critters-container]")
-            .unwrap_or_else(|_| dom.select_first("body").unwrap());
+    fn process_style(
+        &self,
+        sheet: &str,
+        dom: NodeRef,
+        critters_container: &html::NodeDataRef<html::ElementData>,
+    ) -> anyhow::Result<String> {
         let mut failed_selectors = Vec::new();
         let mut rules_to_remove = HashSet::new();
         let mut critical_keyframe_names: HashSet<String> = HashSet::new();
@@ -625,7 +632,12 @@ impl Critters {
     }
 
     /// Parse the stylesheet within a <style> element, then reduce it to contain only rules used by the document.
-    fn process_style_el(&self, style: &NodeRef, dom: NodeRef) -> anyhow::Result<()> {
+    fn process_style_el(
+        &self,
+        style: &NodeRef,
+        dom: NodeRef,
+        critters_container: &html::NodeDataRef<html::ElementData>,
+    ) -> anyhow::Result<()> {
         let style_child = match style.children().nth(0) {
             Some(c) => c,
             // skip empty stylesheets
@@ -643,7 +655,7 @@ impl Critters {
             return Ok(());
         }
 
-        let css = self.process_style(&sheet, dom)?;
+        let css = self.process_style(&sheet, dom, critters_container)?;
 
         // remove all existing text from style node
         style.children().for_each(|c| c.detach());
