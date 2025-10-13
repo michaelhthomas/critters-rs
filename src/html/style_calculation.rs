@@ -175,7 +175,7 @@ fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut Sty
         .matches_with_context(element, Some(&rule.hashes), &mut context)
 }
 
-/// Calculates which rules match the given element and sorts them by cascade order.
+/// Calculates which rules match the given element and adds them to the provided set.
 ///
 /// Uses indexed lookups and bloom filter optimization for performance,
 /// then applies CSS cascade rules (specificity + source order).
@@ -183,17 +183,17 @@ fn calculate_matching_rules<'a>(
     element: &NodeDataRef<ElementData>,
     rule_set: &'a RuleSet,
     bloom: &mut StyleBloom,
-) -> HashSet<&'a Rule> {
+    rules: &mut HashSet<&'a Rule>,
+) {
     // Get potential matching rules from indexed buckets
     let potential_rules = rule_set.get_potential_rules(element);
 
-    // Filter rules by actually matching selectors
-    let matching_rules: HashSet<_> = potential_rules
-        .into_iter()
-        .filter(|rule| matches_rule(element, rule, bloom))
-        .collect();
-
-    matching_rules
+    // Filter rules by actually matching selectors and insert into the set
+    for rule in potential_rules {
+        if matches_rule(element, rule, bloom) {
+            rules.insert(rule);
+        }
+    }
 }
 
 /// Calculates matching styles for all elements in a DOM tree.
@@ -219,7 +219,7 @@ pub fn calculate_styles_for_tree(
             bloom.pop();
         }
 
-        rules.extend(calculate_matching_rules(&el, &rule_set, &mut bloom));
+        calculate_matching_rules(&el, &rule_set, &mut bloom, &mut rules);
 
         // Update bloom filter
         bloom.push(el.clone());
