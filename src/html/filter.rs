@@ -53,9 +53,10 @@ where
         f(Atom::<html5ever::LocalNameStaticSet>::from(id).get_hash());
     }
 
-    attrs.class_list.iter().for_each(|class| {
-        f(Atom::<html5ever::LocalNameStaticSet>::from(class.as_str()).get_hash())
-    });
+    attrs
+        .class_list
+        .iter()
+        .for_each(|class| f(class.get_hash()));
 
     attrs.keys().for_each(|name| {
         if !is_attr_name_excluded_from_filter(name) {

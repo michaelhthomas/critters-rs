@@ -6,7 +6,7 @@ use selectors::attr::{CaseSensitivity, SELECTOR_WHITESPACE};
 #[derive(Debug, Clone)]
 pub struct Attributes {
     /// The list of CSS classes for the element
-    pub class_list: Vec<String>,
+    pub class_list: Vec<LocalName>,
     /// A map of attributes whose name can have namespaces.
     pub(crate) map: IndexMap<ExpandedName, Attribute>,
 }
@@ -25,7 +25,7 @@ impl Attributes {
             .map(|a| {
                 a.value
                     .split(SELECTOR_WHITESPACE)
-                    .map(|s| s.to_owned())
+                    .map(LocalName::from)
                     .collect()
             })
             .unwrap_or_else(|| Vec::new());

@@ -49,7 +49,7 @@ struct RuleSet {
     /// Rules indexed by ID selectors (highest priority)
     pub id_rules: HashMap<String, Vec<Rule>>,
     /// Rules indexed by class selectors
-    pub class_rules: HashMap<String, Vec<Rule>>,
+    pub class_rules: HashMap<LocalName, Vec<Rule>>,
     /// Rules indexed by tag selectors
     pub tag_rules: HashMap<LocalName, Vec<Rule>>,
     /// Universal rules and other selectors that can't be indexed
@@ -94,10 +94,10 @@ impl RuleSet {
                     return KeySelector::Id(id.to_string());
                 }
                 Component::Class(class) => {
-                    return KeySelector::Class(class.to_string());
+                    return KeySelector::Class(class.clone());
                 }
                 Component::LocalName(name) => {
-                    return KeySelector::Tag(name.name.to_string());
+                    return KeySelector::Tag(name.lower_name.clone());
                 }
                 _ => {}
             }
@@ -160,8 +160,8 @@ impl FromIterator<Rule> for RuleSet {
 #[derive(Debug, Clone)]
 enum KeySelector {
     Id(String),
-    Class(String),
-    Tag(String),
+    Class(LocalName),
+    Tag(LocalName),
     Universal,
 }
 
