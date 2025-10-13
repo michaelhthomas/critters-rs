@@ -110,6 +110,7 @@ impl RuleSet {
     /// Gets all rules that might match the given element from indexed buckets.
     ///
     /// This performs fast O(1) hash lookups rather than scanning all rules.
+    #[inline]
     pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> SmallVec<[&Rule; 16]> {
         let attributes = element.attributes.borrow();
 
@@ -164,6 +165,7 @@ enum KeySelector {
     Universal,
 }
 
+#[inline]
 fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut StyleBloom) -> bool {
     if cfg!(debug_assertions) {
         bloom.assert_complete(element.clone());
@@ -184,6 +186,7 @@ fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut Sty
 ///
 /// Uses indexed lookups and bloom filter optimization for performance,
 /// then applies CSS cascade rules (specificity + source order).
+#[inline]
 fn calculate_matching_rules<'a>(
     element: &NodeDataRef<ElementData>,
     rule_set: &'a RuleSet,
