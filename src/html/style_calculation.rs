@@ -8,6 +8,7 @@ use crate::html::{ElementData, NodeDataRef, Selector};
 use html5ever::{local_name, LocalName};
 use selectors::context::{MatchingContext, MatchingMode};
 use selectors::parser::{AncestorHashes, Component};
+use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
 /// A CSS rule with selector, specificity, and declaration block.
@@ -109,9 +110,13 @@ impl RuleSet {
     /// Gets all rules that might match the given element from indexed buckets.
     ///
     /// This performs fast O(1) hash lookups rather than scanning all rules.
-    pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> Vec<&Rule> {
-        let mut rules = Vec::new();
+    pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> SmallVec<[&Rule; 16]> {
         let attributes = element.attributes.borrow();
+
+        // Estimate capacity based on universal rules + typical matches
+        // Most elements match: universal rules + 1 tag rule + 2-3 class rules
+        let estimated_capacity = self.universal_rules.len() + 8;
+        let mut rules = SmallVec::with_capacity(estimated_capacity);
 
         // Always check universal rules
         rules.extend(self.universal_rules.iter());
