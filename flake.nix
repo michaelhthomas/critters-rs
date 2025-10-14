@@ -31,6 +31,7 @@
         rustToolchain
         cargo-insta
         cargo-flamegraph
+        samply
 
         # Node.js
         nodejs_24
