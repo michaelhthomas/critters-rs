@@ -155,7 +155,8 @@ pub struct CrittersOptions {
     /// Inline stylesheets smaller than a given size.
     #[clap(long, default_value_t)]
     pub inline_threshold: u32,
-    /// If the non-critical external stylesheet would be below this size, just inline it
+    /// If the non-critical external stylesheet would be below this size, just inline it.
+    /// Only applicable if `prune_source` is true.
     #[clap(long, default_value_t)]
     pub minimum_external_size: u32,
     /// Remove inlined rules from the external stylesheet
@@ -568,13 +569,16 @@ impl Critters {
         let original_rules = ast.rules.0.len();
         ast.rules.0.retain(|rule| match rule {
             CssRule::Style(s) => !rules_to_remove.contains(&s.id()),
-            CssRule::Keyframes(k) => {
-                // TODO: keyframes mode options
-                let kf_name = match &k.name {
-                    KeyframesName::Ident(CustomIdent(id)) | KeyframesName::Custom(id) => id,
-                };
-                critical_keyframe_names.contains(&kf_name.to_string())
-            }
+            CssRule::Keyframes(k) => match self.options.keyframes {
+                KeyframesStrategy::Critical => {
+                    let kf_name = match &k.name {
+                        KeyframesName::Ident(CustomIdent(id)) | KeyframesName::Custom(id) => id,
+                    };
+                    critical_keyframe_names.contains(&kf_name.to_string())
+                }
+                KeyframesStrategy::All => true,
+                KeyframesStrategy::None => false,
+            },
             CssRule::FontFace(f) => {
                 let href_regex = regex!(r#"url\s*\(\s*(['"]?)(.+?)\1\s*\)"#, fancy_regex::Regex);
                 let mut href = None;
@@ -1361,5 +1365,232 @@ mod tests {
 
         assert!(stylesheet.contains(".critical"));
         assert!(stylesheet.contains(".non-critical"));
+    }
+
+    #[test]
+    fn keyframes_critical() {
+        let html = construct_html(
+            r#"<style>
+                .animated { animation: slideIn 1s ease-in; }
+                .not-animated { color: blue; }
+                @keyframes slideIn {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(100%); }
+                }
+            </style>"#,
+            r#"<div class="animated">Hello World</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::Critical,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include the animated class that's used
+        assert!(stylesheet.contains(".animated"));
+        // Should NOT include the unused class
+        assert!(!stylesheet.contains(".not-animated"));
+        // Should include the slideIn keyframe (used by .animated)
+        assert!(stylesheet.contains("slideIn") || stylesheet.contains("@keyframes"));
+        // Should NOT include the unused slideOut keyframe
+        assert!(!stylesheet.contains("slideOut"));
+    }
+
+    #[test]
+    fn keyframes_all() {
+        let html = construct_html(
+            r#"<style>
+                .animated { animation: slideIn 1s ease-in; }
+                .not-animated { color: blue; }
+                @keyframes slideIn {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(100%); }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            </style>"#,
+            r#"<div class="animated">Hello World</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::All,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include the animated class
+        assert!(stylesheet.contains(".animated"));
+        // Should NOT include the unused class
+        assert!(!stylesheet.contains(".not-animated"));
+        // Should include ALL keyframes, even unused ones
+        assert!(stylesheet.contains("@keyframes slideIn"));
+        assert!(stylesheet.contains("@keyframes slideOut"));
+        assert!(stylesheet.contains("@keyframes fadeIn"));
+    }
+
+    #[test]
+    fn keyframes_none() {
+        let html = construct_html(
+            r#"<style>
+                .animated { animation: slideIn 1s ease-in; }
+                .not-animated { color: blue; }
+                @keyframes slideIn {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(100%); }
+                }
+            </style>"#,
+            r#"<div class="animated">Hello World</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::None,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include the animated class (but the animation property remains)
+        assert!(stylesheet.contains(".animated"));
+        // Should NOT include the unused class
+        assert!(!stylesheet.contains(".not-animated"));
+        // Should NOT include any keyframes definitions
+        assert!(!stylesheet.contains("@keyframes"));
+        assert!(!stylesheet.contains("slideOut"));
+    }
+
+    #[test]
+    fn keyframes_critical_with_animation_property() {
+        let html = construct_html(
+            r#"<style>
+                .box { animation-name: bounce; }
+                .other { color: red; }
+                @keyframes bounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-20px); }
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            </style>"#,
+            r#"<div class="box">Bouncing Box</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::Critical,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include the box class
+        assert!(stylesheet.contains(".box"));
+        // Should include the bounce keyframe (referenced by animation-name)
+        assert!(stylesheet.contains("@keyframes bounce"));
+        // Should NOT include unused spin keyframe
+        assert!(!stylesheet.contains("spin"));
+    }
+
+    #[test]
+    fn keyframes_critical_multiple_animations() {
+        let html = construct_html(
+            r#"<style>
+                .combo { animation: fadeIn 1s, slideIn 0.5s; }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideIn {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(100%); }
+                }
+            </style>"#,
+            r#"<div class="combo">Multiple animations</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::Critical,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include both used keyframes
+        assert!(stylesheet.contains("fadeIn"));
+        assert!(stylesheet.contains("slideIn"));
+        // Should NOT include unused keyframe
+        assert!(!stylesheet.contains("slideOut"));
+    }
+
+    #[test]
+    fn keyframes_critical_no_animations() {
+        let html = construct_html(
+            r#"<style>
+                .static { color: red; }
+                @keyframes unused {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            </style>"#,
+            r#"<div class="static">No animations here</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            keyframes: KeyframesStrategy::Critical,
+            ..Default::default()
+        });
+
+        let processed = critters.process(&html).unwrap();
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+        let stylesheet = dom.select_first("style").unwrap().text_contents();
+
+        // Should include the static class
+        assert!(stylesheet.contains(".static"));
+        // Should NOT include unused keyframe
+        assert!(!stylesheet.contains("unused"));
+        assert!(!stylesheet.contains("@keyframes"));
     }
 }
