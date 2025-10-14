@@ -808,7 +808,9 @@ impl Critters {
                 );
                 drop(link_attrs);
 
-                inject_noscript_fallback();
+                if self.options.noscript_fallback {
+                    inject_noscript_fallback();
+                }
             }
             PreloadStrategy::Swap => {
                 let mut link_attrs = link_el.attributes.borrow_mut();
@@ -816,7 +818,9 @@ impl Critters {
                 drop(link_attrs);
 
                 update_link_to_preload();
-                inject_noscript_fallback();
+                if self.options.noscript_fallback {
+                    inject_noscript_fallback();
+                }
             }
             PreloadStrategy::SwapHigh => {
                 let mut link_attrs = link_el.attributes.borrow_mut();
@@ -826,7 +830,9 @@ impl Critters {
                 link_attrs.insert("onload", "this.title='';this.rel='stylesheet'".to_string());
                 drop(link_attrs);
 
-                inject_noscript_fallback();
+                if self.options.noscript_fallback {
+                    inject_noscript_fallback();
+                }
             }
             // PreloadStrategy::Js | PreloadStrategy::JsLazy => todo!(),
             PreloadStrategy::None => (),
@@ -1331,6 +1337,105 @@ mod tests {
             noscript_link_el.attributes.borrow().get("href"),
             Some("external.css")
         );
+    }
+
+    #[test]
+    fn noscript_fallback_disabled_swap() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::Swap,
+            noscript_fallback: false,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Preload link should still exist
+        dom.select_first("head > link[rel=preload]")
+            .expect("Failed to locate preload link.");
+
+        // Noscript should NOT exist
+        dom.select_first("noscript")
+            .expect_err("Noscript element should not exist when noscript_fallback is disabled");
+    }
+
+    #[test]
+    fn noscript_fallback_disabled_media() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" media="screen" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::Media,
+            noscript_fallback: false,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Media link should still exist
+        dom.select_first("head > link[media=print]")
+            .expect("Failed to locate media link.");
+
+        // Noscript should NOT exist
+        dom.select_first("noscript")
+            .expect_err("Noscript element should not exist when noscript_fallback is disabled");
+    }
+
+    #[test]
+    fn noscript_fallback_disabled_swap_high() {
+        let tmp_dir = create_test_folder(&[("external.css", BASIC_CSS)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="external.css" />"#,
+            r#"<div class="critical">Hello world</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            preload: PreloadStrategy::SwapHigh,
+            noscript_fallback: false,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to inline critical css");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Preload link should still exist
+        dom.select_first("head > link[rel~=preload]")
+            .expect("Failed to locate preload link.");
+
+        // Noscript should NOT exist
+        dom.select_first("noscript")
+            .expect_err("Noscript element should not exist when noscript_fallback is disabled");
     }
 
     #[test]
