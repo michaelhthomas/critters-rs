@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.3.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.2.0...critters-rs-v1.3.0) (2025-10-17)
+
+
+### Features
+
+* implement inline_threshold option ([2ffa1a0](https://github.com/michaelhthomas/critters-rs/commit/2ffa1a092c0939cfdb806b011d8d913f6ae3f900))
+
+
+### Bug Fixes
+
+* implmement noscript_fallback option ([887cac1](https://github.com/michaelhthomas/critters-rs/commit/887cac122866c96c65ea9901cf987c412e3b6908))
+* support all keyframe inclusion modes ([c60b3b9](https://github.com/michaelhthomas/critters-rs/commit/c60b3b9f06154f6dd87e7f0e790d2817b97300ef))
+
+
+### Performance Improvements
+
+* intern class names in attribute list ([2273a6d](https://github.com/michaelhthomas/critters-rs/commit/2273a6d04d03508bb574bc225fe6ae5217086c94))
+* **process_style:** avoid selecting critters container element for each ([b15812a](https://github.com/michaelhthomas/critters-rs/commit/b15812a8293a809cbeefa9bd76c4b0a2ec7592a3))
+* **style_calculation:** add inline hints ([2d700e6](https://github.com/michaelhthomas/critters-rs/commit/2d700e63f73789ac16fa65867b9fb37f4b356ef0))
+* **style_calculation:** avoid unnecessary hashmap allocation in ([06be044](https://github.com/michaelhthomas/critters-rs/commit/06be044c8a3594c6eda7171f0a744c0fa22cdde2))
+* **style_calculation:** use SmallVec for potential rules ([c51823e](https://github.com/michaelhthomas/critters-rs/commit/c51823e8ca6f703e5104964df7857c51e81ee96a))
+
 ## [1.2.0](https://github.com/michaelhthomas/critters-rs/compare/critters-rs-v1.1.3...critters-rs-v1.2.0) (2025-09-25)
 
 
