@@ -66,11 +66,11 @@
           echo "  - Moon: $(moon --version)"
           echo ""
           echo "Quick start:"
-          echo "  cargo build              # Build Rust library"
+          echo "  cargo build                 # Build Rust library"
           echo "  cargo build --features cli  # Build CLI tool"
-          echo "  pnpm build               # Build all packages"
-          echo "  cargo test               # Run Rust tests"
-          echo "  pnpm test                # Run all tests"
+          echo "  pnpm build                  # Build all packages"
+          echo "  cargo test                  # Run Rust tests"
+          echo "  pnpm test                   # Run all tests"
         '';
 
         # Environment variables
