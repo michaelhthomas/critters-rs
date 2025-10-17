@@ -239,6 +239,11 @@ impl default::Default for CrittersOptions {
     }
 }
 
+struct StylesheetInfo {
+    pub el: NodeRef,
+    pub reduce: bool,
+}
+
 #[derive(Clone)]
 #[cfg_attr(feature = "use-napi", napi)]
 pub struct Critters {
@@ -316,8 +321,8 @@ impl Critters {
 
         // Extract and inline critical CSS
         debug!("Inlining {} stylesheets.", styles.len());
-        for style in styles.iter() {
-            let res = self.process_style_el(style, dom.clone(), &critters_container);
+        for style in styles.iter().filter(|s| s.reduce) {
+            let res = self.process_style_el(&style.el, dom.clone(), &critters_container);
             // Log processing errors and skip associated stylesheets
             if let Err(err) = res {
                 error!(
@@ -408,15 +413,18 @@ impl Critters {
     }
 
     /// Gets inline styles from the document.
-    fn get_inline_stylesheets(&self, dom: &NodeRef) -> Vec<NodeRef> {
+    fn get_inline_stylesheets(&self, dom: &NodeRef) -> Vec<StylesheetInfo> {
         dom.select("style")
             .unwrap()
-            .map(|n| n.as_node().clone())
+            .map(|n| StylesheetInfo {
+                el: n.as_node().clone(),
+                reduce: true,
+            })
             .collect()
     }
 
     /// Resolve links to external stylesheets, inlining them and replacing the link with a preload strategy.
-    fn get_external_stylesheets(&self, dom: &NodeRef) -> Vec<NodeRef> {
+    fn get_external_stylesheets(&self, dom: &NodeRef) -> Vec<StylesheetInfo> {
         let external_sheets: Vec<_> = dom.select("link[rel=\"stylesheet\"]").unwrap().collect();
 
         external_sheets
@@ -432,7 +440,7 @@ impl Critters {
     }
 
     /// Resolve styles for the provided additional stylesheets, if any, and append them to the head.
-    fn get_additional_stylesheets(&self, dom: &NodeRef) -> anyhow::Result<Vec<NodeRef>> {
+    fn get_additional_stylesheets(&self, dom: &NodeRef) -> anyhow::Result<Vec<StylesheetInfo>> {
         self.options
             .additional_stylesheets
             .iter()
@@ -440,6 +448,7 @@ impl Critters {
             .dedup()
             .filter_map(|href| self.get_css_asset(href))
             .map(|css| self.inject_style(&css, dom))
+            .map_ok(|el| StylesheetInfo { el, reduce: true })
             .collect()
     }
 
@@ -729,7 +738,7 @@ impl Critters {
         &self,
         link: &NodeRef,
         dom: &NodeRef,
-    ) -> anyhow::Result<Option<NodeRef>> {
+    ) -> anyhow::Result<Option<StylesheetInfo>> {
         let link_el = link.as_element().unwrap();
         let link_attrs = link_el.attributes.borrow();
         let href = match link_attrs.get("href") {
@@ -742,13 +751,24 @@ impl Critters {
             Some(v) => v,
             None => return Ok(None),
         };
+        let sheet_len = sheet.len();
 
         let style = NodeRef::new_html_element("style", vec![]);
         style.append(NodeRef::new_text(sheet));
         link.insert_before(style.clone());
 
-        // TODO: inline threshold?
+        // If size is below inline threshold, inline stylesheet without reducing,
+        // and remove the original link
+        if sheet_len < self.options.inline_threshold as usize {
+            link.detach();
+            return Ok(Some(StylesheetInfo {
+                el: style,
+                reduce: false,
+            }));
+        }
 
+        // If exclude_external matches, include and reduce the stylesheet,
+        // while removing the original link
         if self
             .options
             .exclude_external
@@ -756,7 +776,10 @@ impl Critters {
             .any(|m| m.matches(&href))
         {
             link.detach();
-            return Ok(Some(style));
+            return Ok(Some(StylesheetInfo {
+                el: style,
+                reduce: true,
+            }));
         }
 
         let body = dom
@@ -838,7 +861,10 @@ impl Critters {
             PreloadStrategy::None => (),
         };
 
-        Ok(Some(style))
+        Ok(Some(StylesheetInfo {
+            el: style,
+            reduce: true,
+        }))
     }
 
     /// Inject the given CSS stylesheet as a new <style> tag in the DOM
@@ -873,8 +899,8 @@ impl Critters {
         Ok(())
     }
 
-    fn merge_stylesheets(&self, styles: Vec<NodeRef>) {
-        let mut styles_iter = styles.into_iter().rev();
+    fn merge_stylesheets(&self, styles: Vec<StylesheetInfo>) {
+        let mut styles_iter = styles.into_iter().map(|s| s.el).rev();
         let first = match styles_iter.next() {
             Some(f) => match f.first_child() {
                 Some(c) => c,
@@ -1697,5 +1723,270 @@ mod tests {
         // Should NOT include unused keyframe
         assert!(!stylesheet.contains("unused"));
         assert!(!stylesheet.contains("@keyframes"));
+    }
+
+    #[test]
+    fn inline_threshold_below_threshold() {
+        // Test that stylesheets below the threshold are fully inlined
+        // and the external link is removed
+        let small_css = ".a { color: red; }"; // 18 bytes
+        let tmp_dir = create_test_folder(&[("small.css", small_css)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="small.css" />"#,
+            r#"<div class="a">Content</div><div class="b">Other</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            inline_threshold: 100, // Set threshold above stylesheet size
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to process with inline_threshold");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Should have an inline style tag with the FULL stylesheet (not reduced)
+        let stylesheet = dom
+            .select_first("style")
+            .expect("Failed to locate inline stylesheet")
+            .text_contents();
+        assert!(stylesheet.contains(".a"));
+
+        // Should NOT have any external stylesheet link
+        assert!(
+            dom.select_first("link[rel=stylesheet]").is_err(),
+            "External stylesheet link should be removed"
+        );
+
+        // Should NOT have preload link
+        assert!(
+            dom.select_first("link[rel=preload]").is_err(),
+            "Preload link should not exist when fully inlined"
+        );
+    }
+
+    #[test]
+    fn inline_threshold_above_threshold() {
+        // Test that stylesheets above the threshold follow normal behavior
+        let large_css = ".critical { color: red; }\n.non-critical { color: blue; }"; // > 20 bytes
+        let tmp_dir = create_test_folder(&[("large.css", large_css)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="large.css" />"#,
+            r#"<div class="critical">Content</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            inline_threshold: 20, // Set threshold below stylesheet size
+            preload: PreloadStrategy::BodyPreload,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to process with inline_threshold");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Should have inline style tag with REDUCED (critical) CSS only
+        let stylesheet = dom
+            .select_first("style")
+            .expect("Failed to locate inline stylesheet")
+            .text_contents();
+        assert!(
+            stylesheet.contains(".critical"),
+            "Critical CSS should be inlined"
+        );
+        assert!(
+            !stylesheet.contains(".non-critical"),
+            "Non-critical CSS should not be inlined"
+        );
+
+        // Should still have preload link
+        let preload_link = dom
+            .select_first("link[rel=preload]")
+            .expect("Preload link should exist for large stylesheets");
+        assert_eq!(
+            preload_link.attributes.borrow().get("href"),
+            Some("large.css")
+        );
+
+        // Should still have external stylesheet link in body
+        let stylesheet_link = dom
+            .select_first("body > link[rel=stylesheet]")
+            .expect("External stylesheet link should exist for large stylesheets");
+        assert_eq!(
+            stylesheet_link.attributes.borrow().get("href"),
+            Some("large.css")
+        );
+    }
+
+    #[test]
+    fn inline_threshold_exact_size() {
+        // Test edge case: stylesheet size exactly equals threshold
+        // Should NOT inline (needs to be strictly less than)
+        let css = ".test { color: red; }"; // 21 bytes
+        let css_len = css.len();
+        let tmp_dir = create_test_folder(&[("exact.css", css)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="exact.css" />"#,
+            r#"<div class="test">Content</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            inline_threshold: css_len as u32, // Exactly equal to stylesheet size
+            preload: PreloadStrategy::BodyPreload,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to process with inline_threshold");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Should have preload link (normal behavior, not fully inlined)
+        assert!(
+            dom.select_first("link[rel=preload]").is_ok(),
+            "Preload link should exist when size equals threshold"
+        );
+
+        // Should have external stylesheet link
+        assert!(
+            dom.select_first("body > link[rel=stylesheet]").is_ok(),
+            "External stylesheet link should exist when size equals threshold"
+        );
+    }
+
+    #[test]
+    fn inline_threshold_zero_default() {
+        // Test that default behavior (threshold = 0) works as expected
+        let css = ".critical { color: red; }\n.non-critical { color: blue; }";
+        let tmp_dir = create_test_folder(&[("test.css", css)]);
+
+        let html = construct_html(
+            r#"<link rel="stylesheet" href="test.css" />"#,
+            r#"<div class="critical">Content</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            inline_threshold: 0, // Default value
+            preload: PreloadStrategy::BodyPreload,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to process with default inline_threshold");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Should follow normal critical CSS extraction behavior
+        let stylesheet = dom
+            .select_first("style")
+            .expect("Failed to locate inline stylesheet")
+            .text_contents();
+        assert!(stylesheet.contains(".critical"));
+        assert!(!stylesheet.contains(".non-critical"));
+
+        // Should have preload and external links
+        assert!(dom.select_first("link[rel=preload]").is_ok());
+        assert!(dom.select_first("body > link[rel=stylesheet]").is_ok());
+    }
+
+    #[test]
+    fn inline_threshold_multiple_stylesheets() {
+        // Test that inline_threshold applies independently to each stylesheet
+        let small_css = ".small { color: red; }"; // ~22 bytes
+        let large_css = ".critical { color: blue; }\n.non-critical { color: green; }\n.extra { color: yellow; }"; // > 50 bytes
+        let tmp_dir = create_test_folder(&[("small.css", small_css), ("large.css", large_css)]);
+
+        let html = construct_html(
+            r#"
+            <link rel="stylesheet" href="small.css" />
+            <link rel="stylesheet" href="large.css" />
+            "#,
+            r#"<div class="small critical">Content</div>"#,
+        );
+
+        let critters = Critters::new(CrittersOptions {
+            path: tmp_dir,
+            external: true,
+            inline_threshold: 40, // Small stylesheet is below, large is above
+            preload: PreloadStrategy::BodyPreload,
+            merge_stylesheets: false,
+            ..Default::default()
+        });
+
+        let processed = critters
+            .process(&html)
+            .expect("Failed to process multiple stylesheets with inline_threshold");
+
+        let parser = html::parse_html();
+        let dom = parser.one(processed);
+
+        // Should have inline style tags
+        let stylesheets: Vec<_> = dom
+            .select("style")
+            .unwrap()
+            .map(|s| s.text_contents())
+            .collect();
+
+        // Should have at least 2 style tags (small fully inlined + large critical CSS)
+        assert!(stylesheets.len() >= 2, "Should have multiple style tags");
+
+        // Small stylesheet should be fully inlined
+        let has_small = stylesheets.iter().any(|s| s.contains(".small"));
+        assert!(has_small, "Small stylesheet should be fully inlined");
+
+        // Large stylesheet should only have critical CSS
+        let has_critical = stylesheets.iter().any(|s| s.contains(".critical"));
+        assert!(has_critical, "Large stylesheet should have critical CSS");
+
+        let has_non_critical = stylesheets.iter().any(|s| s.contains(".non-critical"));
+        assert!(
+            !has_non_critical,
+            "Large stylesheet should not have non-critical CSS"
+        );
+
+        // Should have preload link only for large stylesheet
+        let preload_links: Vec<_> = dom.select("link[rel=preload]").unwrap().collect();
+        assert_eq!(
+            preload_links.len(),
+            1,
+            "Should have one preload link for large stylesheet"
+        );
+        assert_eq!(
+            preload_links[0].attributes.borrow().get("href"),
+            Some("large.css")
+        );
+
+        // Should have external link only for large stylesheet
+        let external_links: Vec<_> = dom.select("body > link[rel=stylesheet]").unwrap().collect();
+        assert_eq!(
+            external_links.len(),
+            1,
+            "Should have one external link for large stylesheet"
+        );
+        assert_eq!(
+            external_links[0].attributes.borrow().get("href"),
+            Some("large.css")
+        );
     }
 }
