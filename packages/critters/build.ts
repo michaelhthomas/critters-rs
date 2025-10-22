@@ -95,8 +95,42 @@ ${declaration.replace(/constructor\(.*?\)/, "constructor(options?: CrittersOptio
 async function bundleEsm() {
 	const output = await rollup({
 		input: path.join(JS_DIR, "index.js"),
-		external: ["util", "path", "fs", /.*\.node$/],
+		external: [/^node:/, /.*\.node$/],
 		plugins: [
+			{
+  			// Strips CJS compat code that is invalid in ESM
+				name: "strip-create-require",
+
+				transform(code: string, id: string) {
+					if (id.includes("node_modules")) return null;
+
+					const patterns = [
+						// const { createRequire } = require('node:module') or require("node:module")
+						/const\s*{\s*createRequire\s*}\s*=\s*require\s*\(\s*['"]node:module['"]\s*\)\s*;?\s*\n?/g,
+						// require = createRequire(__filename)
+						/require\s*=\s*createRequire\s*\(\s*__filename\s*\)\s*;?\s*\n?/g,
+					];
+
+					let transformedCode = code;
+					let hasChanges = false;
+
+					patterns.forEach((pattern) => {
+						if (pattern.test(transformedCode)) {
+							hasChanges = true;
+							transformedCode = transformedCode.replace(pattern, "");
+						}
+					});
+
+					if (hasChanges) {
+						return {
+							code: transformedCode,
+							map: null,
+						};
+					}
+
+					return null;
+				},
+			},
 			pluginCjs({ defaultIsModuleExports: false }),
 			pluginEsmShim(),
 			pluginCopy({
