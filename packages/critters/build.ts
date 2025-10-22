@@ -57,7 +57,11 @@ async function fixTypes() {
 			"test export_bindings --lib --features typegen".split(" "),
 			{
 				cwd: CRATE_PATH,
-				env: { ...process.env, TS_RS_EXPORT_DIR: RUST_OUT_DIR },
+				env: {
+					...process.env,
+					TS_RS_EXPORT_DIR: RUST_OUT_DIR,
+					TS_RS_IMPORT_EXTENSION: "ts",
+				},
 				stdio: "inherit",
 			},
 		);
