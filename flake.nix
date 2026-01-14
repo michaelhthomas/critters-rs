@@ -21,32 +21,59 @@
       pkgs = import nixpkgs {
         inherit system overlays;
       };
+      inherit (pkgs) lib rustPlatform fetchFromGitHub;
 
       rustToolchain = pkgs.rust-bin.stable.latest.default.override {
         extensions = ["rust-src" "rust-analyzer"];
       };
 
-      nativeBuildInputs = with pkgs; [
-        # Rust
-        rustToolchain
-        cargo-insta
-        cargo-flamegraph
-        samply
+      cargo-instruments = rustPlatform.buildRustPackage (finalAttrs: {
+        pname = "cargo-instruments";
+        version = "v0.4.14";
 
-        # Node.js
-        nodejs_24
-        corepack_24
-        pnpm
+        src = fetchFromGitHub {
+          owner = "cmyr";
+          repo = "cargo-instruments";
+          tag = finalAttrs.version;
+          hash = "sha256-BXVVmjAuod46/Naado4+yyMhg/24dMaFkNINyT9WMZU=";
+        };
 
-        # Deno (runs scripts/*.ts)
-        deno
+        cargoHash = "sha256-1A4XJZwVGjksoJ3NqAhVws28mr+k2/YCx4ICH9/WLzw=";
 
-        # Build tools for native dependencies
-        pkg-config
+        nativeBuildInputs = with pkgs; [
+          pkg-config
+        ];
 
-        # Moon task runner
-        moon
-      ];
+        buildInputs = with pkgs; [
+          openssl
+        ];
+      });
+
+      nativeBuildInputs = with pkgs;
+        [
+          # Rust
+          rustToolchain
+          cargo-insta
+          cargo-flamegraph
+          samply
+
+          # Node.js
+          nodejs_24
+          corepack_24
+          pnpm
+
+          # Deno (runs scripts/*.ts)
+          deno
+
+          # Build tools for native dependencies
+          pkg-config
+
+          # Moon task runner
+          moon
+        ]
+        ++ lib.optionals stdenv.isDarwin [
+          cargo-instruments
+        ];
 
       buildInputs = with pkgs;
         [
