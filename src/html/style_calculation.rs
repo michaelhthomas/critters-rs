@@ -6,10 +6,10 @@
 use crate::html::filter::StyleBloom;
 use crate::html::{ElementData, NodeDataRef, Selector};
 use html5ever::{local_name, LocalName};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use selectors::context::{MatchingContext, MatchingMode};
 use selectors::parser::{AncestorHashes, Component};
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet};
 
 /// A CSS rule with selector, specificity, and declaration block.
 #[derive(Debug, Clone, Eq)]
@@ -216,7 +216,7 @@ pub fn calculate_styles_for_tree(
     let mut bloom = StyleBloom::new();
     bloom.rebuild(root.clone());
 
-    let mut rules = HashSet::new();
+    let mut rules = HashSet::default();
 
     let mut stack: Vec<(NodeDataRef<ElementData>, usize)> =
         vec![(root.clone(), bloom.traversal_depth())];

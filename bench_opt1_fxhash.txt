@@ -1,0 +1,16 @@
+   Compiling rustc-hash v2.1.1
+   Compiling critters-rs v1.2.0 (/Users/michael/Projects/critters-rs)
+    Finished `bench` profile [optimized + debuginfo] target(s) in 8.40s
+     Running benches/wikipedia.rs (target/release/deps/wikipedia-72e1142d1f76f122)
+Gnuplot not found, using plotters backend
+Benchmarking inline_rust_wikipedia
+Benchmarking inline_rust_wikipedia: Warming up for 3.0000 s
+Benchmarking inline_rust_wikipedia: Collecting 100 samples in estimated 63.043 s (1500 iterations)
+Benchmarking inline_rust_wikipedia: Analyzing
+inline_rust_wikipedia   time:   [41.914 ms 41.999 ms 42.093 ms]
+                        change: [+9.7724% +10.133% +10.484%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+

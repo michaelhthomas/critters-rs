@@ -392,6 +392,7 @@ dependencies = [
  "path-clean",
  "rayon",
  "regex",
+ "rustc-hash",
  "selectors",
  "serde",
  "serde_json",
