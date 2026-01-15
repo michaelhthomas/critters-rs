@@ -9,7 +9,6 @@ use html5ever::{local_name, LocalName};
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use selectors::context::{MatchingContext, MatchingMode};
 use selectors::parser::{AncestorHashes, Component};
-use smallvec::SmallVec;
 
 /// A CSS rule with selector, specificity, and declaration block.
 #[derive(Debug, Clone, Eq)]
@@ -110,39 +109,35 @@ impl RuleSet {
     /// Gets all rules that might match the given element from indexed buckets.
     ///
     /// This performs fast O(1) hash lookups rather than scanning all rules.
+    /// Returns an iterator to avoid intermediate allocation.
     #[inline]
-    pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> SmallVec<[&Rule; 16]> {
+    pub fn get_potential_rules<'a>(
+        &'a self,
+        element: &NodeDataRef<ElementData>,
+    ) -> impl Iterator<Item = &'a Rule> + 'a {
         let attributes = element.attributes.borrow();
 
-        // Estimate capacity based on universal rules + typical matches
-        // Most elements match: universal rules + 1 tag rule + 2-3 class rules
-        let estimated_capacity = self.universal_rules.len() + 8;
-        let mut rules = SmallVec::with_capacity(estimated_capacity);
+        let id_rules = attributes
+            .get(local_name!("id"))
+            .and_then(|id| self.id_rules.get(id));
 
-        // Always check universal rules
-        rules.extend(self.universal_rules.iter());
+        let class_rules: Vec<_> = attributes
+            .class_list
+            .iter()
+            .flat_map(|class| self.class_rules.get(class))
+            .collect();
 
-        // Check ID rules
-        if let Some(id) = attributes.get(local_name!("id")) {
-            if let Some(id_rules) = self.id_rules.get(id) {
-                rules.extend(id_rules.iter());
-            }
-        }
+        let tag_rules = self.tag_rules.get(&element.name.local);
 
-        // Check class rules
-        for class in &attributes.class_list {
-            if let Some(class_rules) = self.class_rules.get(class) {
-                rules.extend(class_rules.iter());
-            }
-        }
-
-        // Check tag rules
-        let tag_name = &element.name.local;
-        if let Some(tag_rules) = self.tag_rules.get(tag_name) {
-            rules.extend(tag_rules.iter());
-        }
-
-        rules
+        // Always include universal rules
+        self.universal_rules
+            .iter()
+            // Check ID rules
+            .chain(id_rules.into_iter().flatten())
+            // Check class rules
+            .chain(class_rules.into_iter().flat_map(|c| c.iter()))
+            // Check tag rules
+            .chain(tag_rules.into_iter().flatten())
     }
 }
 impl FromIterator<Rule> for RuleSet {
