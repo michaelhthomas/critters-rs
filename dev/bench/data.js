@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761190340238,
+  "lastUpdate": 1781444921839,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -385,6 +385,36 @@ window.BENCHMARK_DATA = {
             "name": "inline_rust_wikipedia",
             "value": 60304176,
             "range": "± 603640",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "72600702+luuhongyii@users.noreply.github.com",
+            "name": "luuhongyii",
+            "username": "luuhongyii"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4b595f5661c190ec955ae4fe1229fa0263a05cd3",
+          "message": "fix: correct path for Astro package main entry (#21)",
+          "timestamp": "2026-06-14T09:45:51-04:00",
+          "tree_id": "d8f1e2a935480d7e270bca3e314067074f339e8f",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/4b595f5661c190ec955ae4fe1229fa0263a05cd3"
+        },
+        "date": 1781444921143,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "inline_rust_wikipedia",
+            "value": 49607689,
+            "range": "± 495935",
             "unit": "ns/iter"
           }
         ]
