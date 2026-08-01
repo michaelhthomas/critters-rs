@@ -1,5 +1,6 @@
 use html5ever::{local_name, namespace_url, ns, LocalName, Namespace, Prefix};
 use indexmap::{map::Entry, IndexMap};
+use rustc_hash::FxBuildHasher;
 use selectors::attr::{CaseSensitivity, SELECTOR_WHITESPACE};
 
 /// Convenience wrapper around a indexmap that adds method for attributes in the null namespace.
@@ -8,7 +9,7 @@ pub struct Attributes {
     /// The list of CSS classes for the element
     pub class_list: Vec<LocalName>,
     /// A map of attributes whose name can have namespaces.
-    pub(crate) map: IndexMap<ExpandedName, Attribute>,
+    pub(crate) map: IndexMap<ExpandedName, Attribute, FxBuildHasher>,
 }
 
 impl Attributes {
@@ -16,7 +17,8 @@ impl Attributes {
     where
         I: IntoIterator<Item = (ExpandedName, Attribute)>,
     {
-        let map: IndexMap<ExpandedName, Attribute> = attributes.into_iter().collect();
+        let map: IndexMap<ExpandedName, Attribute, FxBuildHasher> =
+            attributes.into_iter().collect();
         let class_list = map
             .get(&ExpandedName {
                 ns: ns!(),
