@@ -8,6 +8,10 @@ use selectors::attr::{CaseSensitivity, SELECTOR_WHITESPACE};
 pub struct Attributes {
     /// The list of CSS classes for the element
     pub class_list: Vec<LocalName>,
+    /// The interned `id` attribute, cached at construction so the bloom filter
+    /// and id selectors match against an atom rather than re-interning the raw
+    /// value on every visit.
+    pub id: Option<LocalName>,
     /// A map of attributes whose name can have namespaces.
     pub(crate) map: IndexMap<ExpandedName, Attribute, FxBuildHasher>,
 }
@@ -32,7 +36,18 @@ impl Attributes {
             })
             .unwrap_or_default();
 
-        Attributes { map, class_list }
+        let id = map
+            .get(&ExpandedName {
+                ns: ns!(),
+                local: local_name!("id"),
+            })
+            .map(|a| LocalName::from(&*a.value));
+
+        Attributes {
+            map,
+            class_list,
+            id,
+        }
     }
 
     #[inline]

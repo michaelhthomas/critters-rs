@@ -1,7 +1,6 @@
 use html5ever::{local_name, LocalName};
 use selectors::{bloom::BloomFilter, Element};
 use smallvec::SmallVec;
-use string_cache::Atom;
 
 use crate::html::{ElementData, NodeDataRef};
 
@@ -49,8 +48,8 @@ where
 
     let attrs = element.attributes.borrow();
 
-    if let Some(id) = attrs.get(local_name!("id")) {
-        f(Atom::<html5ever::LocalNameStaticSet>::from(id).get_hash());
+    if let Some(id) = &attrs.id {
+        f(id.get_hash());
     }
 
     attrs

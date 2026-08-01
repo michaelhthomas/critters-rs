@@ -251,10 +251,18 @@ impl selectors::Element for NodeDataRef<ElementData> {
 
     #[inline]
     fn has_id(&self, id: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
-        self.attributes
-            .borrow()
-            .get(local_name!("id"))
-            .is_some_and(|id_attr| case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes()))
+        match &self.attributes.borrow().id {
+            // Both the element's id atom and the selector's id atom are interned
+            // in the same static set, so a case-sensitive match is an O(1) atom
+            // comparison rather than a byte scan.
+            Some(id_attr) => match case_sensitivity {
+                CaseSensitivity::CaseSensitive => id_attr == id,
+                CaseSensitivity::AsciiCaseInsensitive => {
+                    case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes())
+                }
+            },
+            None => false,
+        }
     }
 
     #[inline]
