@@ -119,38 +119,45 @@ impl RuleSet {
         selector.len() == 1 && !matches!(key, KeySelector::Universal)
     }
 
-    /// Gets all rules that might match the given element from indexed buckets.
+    /// Invokes `f` for every rule that might match the given element, drawn
+    /// from the indexed buckets (universal, id, class, tag).
     ///
     /// This performs fast O(1) hash lookups rather than scanning all rules.
-    /// Returns an iterator to avoid intermediate allocation.
+    ///
+    /// Uses a visitor closure rather than returning an iterator so that the
+    /// `RefCell` borrow of the element's attributes can be held for the whole
+    /// walk without allocating anything: the matched class buckets are visited
+    /// lazily instead of being collected into an intermediate `Vec`.
     #[inline]
-    pub fn get_potential_rules<'a>(
+    pub fn for_each_potential_rule<'a>(
         &'a self,
         element: &NodeDataRef<ElementData>,
-    ) -> impl Iterator<Item = &'a Rule> + 'a {
+        mut f: impl FnMut(&'a Rule),
+    ) {
         let attributes = element.attributes.borrow();
 
-        let id_rules = attributes
-            .get(local_name!("id"))
-            .and_then(|id| self.id_rules.get(id));
-
-        let class_rules: Vec<_> = attributes
-            .class_list
-            .iter()
-            .flat_map(|class| self.class_rules.get(class))
-            .collect();
-
-        let tag_rules = self.tag_rules.get(&element.name.local);
-
         // Always include universal rules
-        self.universal_rules
-            .iter()
-            // Check ID rules
-            .chain(id_rules.into_iter().flatten())
-            // Check class rules
-            .chain(class_rules.into_iter().flat_map(|c| c.iter()))
-            // Check tag rules
-            .chain(tag_rules.into_iter().flatten())
+        self.universal_rules.iter().for_each(&mut f);
+
+        // ID rules
+        if let Some(rules) = attributes
+            .get(local_name!("id"))
+            .and_then(|id| self.id_rules.get(id))
+        {
+            rules.iter().for_each(&mut f);
+        }
+
+        // Class rules
+        for class in &attributes.class_list {
+            if let Some(rules) = self.class_rules.get(class) {
+                rules.iter().for_each(&mut f);
+            }
+        }
+
+        // Tag rules
+        if let Some(rules) = self.tag_rules.get(&element.name.local) {
+            rules.iter().for_each(&mut f);
+        }
     }
 }
 impl FromIterator<Rule> for RuleSet {
@@ -219,15 +226,13 @@ fn calculate_matching_rules<'a>(
     bloom: &mut StyleBloom,
     rules: &mut HashSet<&'a Rule>,
 ) {
-    // Get potential matching rules from indexed buckets
-    let potential_rules = rule_set.get_potential_rules(element);
-
-    // Filter rules by actually matching selectors and insert into the set
-    for rule in potential_rules {
+    // Visit potential matching rules from indexed buckets, filter by actually
+    // matching selectors, and insert into the set.
+    rule_set.for_each_potential_rule(element, |rule| {
         if matches_rule(element, rule, bloom) {
             rules.insert(rule);
         }
-    }
+    });
 }
 
 /// Calculates matching styles for all elements in a DOM tree.
