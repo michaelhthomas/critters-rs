@@ -332,6 +332,11 @@ impl Selector {
         self.0.iter()
     }
 
+    /// Gets the number of selector segments.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Returns whether the given element matches this selector.
     #[inline]
     pub fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {

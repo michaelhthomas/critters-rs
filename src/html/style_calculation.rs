@@ -17,13 +17,20 @@ struct Rule {
     pub selector: Selector,
     /// The ancestor hashes for this rule
     pub hashes: AncestorHashes,
+    /// Indicates that the rule is a single simple selector, and thus bucket
+    /// membership is sufficient to conclude that it is matched.
+    pub entirely_covered_by_bucketing: bool,
 }
 
 impl Rule {
     /// Creates a new CSS rule with the given parameters.
     pub fn new(selector: Selector) -> Self {
         let hashes = selector.ancestor_hashes();
-        Self { selector, hashes }
+        Self {
+            selector,
+            hashes,
+            entirely_covered_by_bucketing: false,
+        }
     }
 }
 
@@ -64,8 +71,10 @@ impl RuleSet {
     }
 
     /// Adds a rule to the appropriate hash bucket based on its key selector.
-    pub fn add_rule(&mut self, rule: Rule) {
+    pub fn add_rule(&mut self, mut rule: Rule) {
         let key_component = Self::extract_key_selector(&rule.selector);
+        rule.entirely_covered_by_bucketing =
+            Self::is_entirely_covered_by_bucketing(&rule.selector, &key_component);
 
         match key_component {
             KeySelector::Id(id) => {
@@ -104,6 +113,10 @@ impl RuleSet {
 
         // Fallback to universal bucket
         KeySelector::Universal
+    }
+
+    fn is_entirely_covered_by_bucketing(selector: &Selector, key: &KeySelector) -> bool {
+        selector.len() == 1 && !matches!(key, KeySelector::Universal)
     }
 
     /// Gets all rules that might match the given element from indexed buckets.
@@ -166,6 +179,24 @@ fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut Sty
         bloom.assert_complete(element.clone());
     }
 
+    if rule.entirely_covered_by_bucketing {
+        debug_assert!(
+            matches_rule_uncached(element, rule, bloom),
+            "fast-accept disagreed with the real matcher for {:?}",
+            rule.selector
+        );
+        return true;
+    }
+
+    matches_rule_uncached(element, rule, bloom)
+}
+
+#[inline]
+fn matches_rule_uncached(
+    element: &NodeDataRef<ElementData>,
+    rule: &Rule,
+    bloom: &mut StyleBloom,
+) -> bool {
     let mut context = MatchingContext::new(
         MatchingMode::Normal,
         Some(bloom.filter()),
