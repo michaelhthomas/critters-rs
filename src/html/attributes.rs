@@ -36,13 +36,19 @@ impl Attributes {
     }
 
     #[inline]
-    pub(crate) fn has_class(&self, name: &[u8], case_sensitivity: CaseSensitivity) -> bool {
-        for class in &self.class_list {
-            if case_sensitivity.eq(class.as_bytes(), name) {
-                return true;
+    pub(crate) fn has_class(&self, name: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
+        match case_sensitivity {
+            // Both the element's class atoms and the selector's class atom are
+            // interned in the same static set, so a case-sensitive match is an
+            // O(1) atom comparison rather than a per-class byte scan.
+            CaseSensitivity::CaseSensitive => self.class_list.iter().any(|class| class == name),
+            CaseSensitivity::AsciiCaseInsensitive => {
+                let name = name.as_bytes();
+                self.class_list
+                    .iter()
+                    .any(|class| case_sensitivity.eq(class.as_bytes(), name))
             }
         }
-        false
     }
 }
 impl PartialEq for Attributes {

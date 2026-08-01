@@ -259,7 +259,6 @@ impl selectors::Element for NodeDataRef<ElementData> {
 
     #[inline]
     fn has_class(&self, name: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
-        let name = name.as_bytes();
         !name.is_empty() && self.attributes.borrow().has_class(name, case_sensitivity)
     }
 
