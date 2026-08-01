@@ -29,6 +29,14 @@
 #![doc = include_str!("../examples/advanced_config.rs")]
 //! ```
 
+// Use mimalloc as the global allocator for a significant reduction in
+// allocation overhead (the workload is allocation-heavy). Disabled for the
+// napi/cdylib build, where overriding the host (Node.js) process allocator
+// would be inappropriate.
+#[cfg(not(feature = "use-napi"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use html::traits::TendrilSink;
 use html::{NodeData, NodeRef};
 use itertools::Itertools;
