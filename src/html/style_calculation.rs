@@ -4,6 +4,7 @@
 //! using techniques from modern browser engines like Blink and WebKit.
 
 use crate::html::filter::StyleBloom;
+use crate::html::select::KuchikiSelectors;
 use crate::html::{ElementData, NodeDataRef, Selector};
 use html5ever::{local_name, LocalName};
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
@@ -181,38 +182,31 @@ enum KeySelector {
 }
 
 #[inline]
-fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut StyleBloom) -> bool {
-    if cfg!(debug_assertions) {
-        bloom.assert_complete(element.clone());
-    }
-
+fn matches_rule(
+    element: &NodeDataRef<ElementData>,
+    rule: &Rule,
+    context: &mut MatchingContext<KuchikiSelectors>,
+) -> bool {
     if rule.entirely_covered_by_bucketing {
         debug_assert!(
-            matches_rule_uncached(element, rule, bloom),
+            matches_rule_uncached(element, rule, context),
             "fast-accept disagreed with the real matcher for {:?}",
             rule.selector
         );
         return true;
     }
 
-    matches_rule_uncached(element, rule, bloom)
+    matches_rule_uncached(element, rule, context)
 }
 
 #[inline]
 fn matches_rule_uncached(
     element: &NodeDataRef<ElementData>,
     rule: &Rule,
-    bloom: &mut StyleBloom,
+    context: &mut MatchingContext<KuchikiSelectors>,
 ) -> bool {
-    let mut context = MatchingContext::new(
-        MatchingMode::Normal,
-        Some(bloom.filter()),
-        None,
-        selectors::context::QuirksMode::NoQuirks,
-    );
-
     rule.selector
-        .matches_with_context(element, Some(&rule.hashes), &mut context)
+        .matches_with_context(element, Some(&rule.hashes), context)
 }
 
 /// Calculates which rules match the given element and adds them to the provided set.
@@ -226,10 +220,23 @@ fn calculate_matching_rules<'a>(
     bloom: &mut StyleBloom,
     rules: &mut HashSet<&'a Rule>,
 ) {
+    if cfg!(debug_assertions) {
+        bloom.assert_complete(element.clone());
+    }
+
+    // The matching context depends only on the (per-element-stable) bloom
+    // filter, so build it once for the whole element rather than once per rule.
+    let mut context = MatchingContext::new(
+        MatchingMode::Normal,
+        Some(bloom.filter()),
+        None,
+        selectors::context::QuirksMode::NoQuirks,
+    );
+
     // Visit potential matching rules from indexed buckets, filter by actually
     // matching selectors, and insert into the set.
     rule_set.for_each_potential_rule(element, |rule| {
-        if matches_rule(element, rule, bloom) {
+        if matches_rule(element, rule, &mut context) {
             rules.insert(rule);
         }
     });
