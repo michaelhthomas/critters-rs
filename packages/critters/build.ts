@@ -102,7 +102,7 @@ async function bundleEsm() {
 		external: [/^node:/, /.*\.node$/],
 		plugins: [
 			{
-  			// Strips CJS compat code that is invalid in ESM
+				// Strips CJS compat code that is invalid in ESM
 				name: "strip-create-require",
 
 				transform(code: string, id: string) {
