@@ -38,6 +38,9 @@
         corepack_24
         pnpm
 
+        # Deno (runs scripts/*.ts)
+        deno
+
         # Build tools for native dependencies
         pkg-config
 
