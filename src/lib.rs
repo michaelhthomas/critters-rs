@@ -481,7 +481,7 @@ impl Critters {
             .0
             .iter()
             .filter_map(|rule| match rule {
-                CssRule::Style(style_rule) => Some(style_rule.selectors.clone()),
+                CssRule::Style(style_rule) => Some(&style_rule.selectors),
                 _ => None,
             })
             .filter_map(|selectors| {
@@ -500,13 +500,11 @@ impl Critters {
             .flat_map(|selectors| selectors.0)
             .collect::<HashSet<_>>();
 
-        let used_selectors = style_calculation::calculate_styles_for_tree(
-            critters_container,
-            all_selectors.clone(),
-        )
-        .iter()
-        .map(|sel| sel.to_string())
-        .collect::<HashSet<_>>();
+        let used_selectors =
+            style_calculation::calculate_styles_for_tree(critters_container, all_selectors)
+                .iter()
+                .map(|sel| sel.to_string())
+                .collect::<HashSet<_>>();
 
         // TODO: use a visitor to handle nested rules
         // First pass, mark rules not present in the document for removal
