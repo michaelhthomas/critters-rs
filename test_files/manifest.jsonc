@@ -13,7 +13,29 @@
 // `name` must be a valid Rust identifier
 [
   {
+    "name": "michaelt_xyz",
+    "url": "https://michaelt.xyz",
+  },
+  {
     "name": "rust_wikipedia",
     "url": "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+  },
+  // sourced from https://en.wikipedia.org/wiki/Special:LongPages
+  {
+    "name": "wikipedia_2020s",
+    "url": "https://en.wikipedia.org/wiki/2020s",
+  },
+  // very long & CJK
+  {
+    "name": "wikipedia_japanese_conjugation",
+    "url": "https://en.wikipedia.org/wiki/Japanese_conjugation",
+  },
+  {
+    "name": "time_mag",
+    "url": "https://time.com",
+  },
+  {
+    "name": "html_standard",
+    "url": "https://html.spec.whatwg.org",
   },
 ]
