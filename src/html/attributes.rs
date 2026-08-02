@@ -28,7 +28,7 @@ impl Attributes {
                     .map(LocalName::from)
                     .collect()
             })
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_default();
 
         Attributes { map, class_list }
     }

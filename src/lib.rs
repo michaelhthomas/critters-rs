@@ -493,7 +493,7 @@ impl Critters {
             .collect::<HashSet<_>>();
 
         let used_selectors = style_calculation::calculate_styles_for_tree(
-            &critters_container,
+            critters_container,
             all_selectors.clone(),
         )
         .iter()

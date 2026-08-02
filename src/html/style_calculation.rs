@@ -76,7 +76,7 @@ impl RuleSet {
                 self.class_rules.entry(class).or_default().push(rule);
             }
             KeySelector::Tag(tag) => {
-                self.tag_rules.entry(tag.into()).or_default().push(rule);
+                self.tag_rules.entry(tag).or_default().push(rule);
             }
             KeySelector::Universal => {
                 self.universal_rules.push(rule);
