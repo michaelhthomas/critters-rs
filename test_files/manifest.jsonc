@@ -1,0 +1,41 @@
+// Real-world benchmark & snapshot-test sites.
+//
+// Source of truth for `scripts/fetch-real-world.ts`. Add an entry, then run:
+//
+//   pnpm benchmarks:fetch [name...]
+//
+// The script fetches each page's HTML + linked CSS into `test_files/<name>/`,
+// rewrites <link> hrefs to the downloaded local files, and regenerates
+// `test_files/sites.gen.rs`. Each site becomes its own snapshot test
+// (`cargo test --test real_world <name>`) and benchmark
+// (`cargo bench --bench real_world -- <name>`).
+//
+// `name` must be a valid Rust identifier
+[
+  {
+    "name": "michaelt_xyz",
+    "url": "https://michaelt.xyz",
+  },
+  {
+    "name": "rust_wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+  },
+  // sourced from https://en.wikipedia.org/wiki/Special:LongPages
+  {
+    "name": "wikipedia_2020s",
+    "url": "https://en.wikipedia.org/wiki/2020s",
+  },
+  // very long & CJK
+  {
+    "name": "wikipedia_japanese_conjugation",
+    "url": "https://en.wikipedia.org/wiki/Japanese_conjugation",
+  },
+  {
+    "name": "time_mag",
+    "url": "https://time.com",
+  },
+  {
+    "name": "html_standard",
+    "url": "https://html.spec.whatwg.org",
+  },
+]
