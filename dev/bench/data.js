@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785621429302,
+  "lastUpdate": 1785641815499,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -445,6 +445,66 @@ window.BENCHMARK_DATA = {
             "name": "inline_rust_wikipedia",
             "value": 59856622,
             "range": "± 541774",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michaelhthomas@Outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "141d62a65431b7101becf7f7cf36dcb792b933e1",
+          "message": "test: add additional real-world test cases (#24)\n\n* refactor: replace hardcoded real-world fixtures with automated script\n\n* feat: add additional real world test cases",
+          "timestamp": "2026-08-01T23:25:31-04:00",
+          "tree_id": "2fbd7201c55a18497e05147ff59e5ee1e676cf95",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/141d62a65431b7101becf7f7cf36dcb792b933e1"
+        },
+        "date": 1785641814615,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "html_standard",
+            "value": 1428398146,
+            "range": "± 22161662",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "michaelt_xyz",
+            "value": 5405803,
+            "range": "± 57098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rust_wikipedia",
+            "value": 111913276,
+            "range": "± 4568895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "time_mag",
+            "value": 37558825,
+            "range": "± 810560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_2020s",
+            "value": 419287191,
+            "range": "± 10962513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_japanese_conjugation",
+            "value": 348797246,
+            "range": "± 13322760",
             "unit": "ns/iter"
           }
         ]
