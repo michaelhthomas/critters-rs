@@ -7,18 +7,26 @@
 use critters_rs::{Critters, CrittersOptions};
 use std::{fs, path::PathBuf};
 
-/// Load a real-world site fixture, returning a configured `Critters` instance
-/// and the page's HTML.
-pub fn load(name: &str) -> (Critters, String) {
+/// Load a real-world site fixture, returning the options needed to configure a
+/// `Critters` instance and the page's HTML.
+pub fn load_options(name: &str) -> (CrittersOptions, String) {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("test_files")
         .join(name);
     let html = fs::read_to_string(dir.join("index.html"))
         .unwrap_or_else(|e| panic!("failed to read {}/index.html: {e}", dir.display()));
-    let critters = Critters::new(CrittersOptions {
+    let options = CrittersOptions {
         path: dir.to_string_lossy().to_string(),
         external: true,
         ..Default::default()
-    });
-    (critters, html)
+    };
+    (options, html)
+}
+
+/// Load a real-world site fixture, returning a configured `Critters` instance
+/// and the page's HTML.
+#[allow(dead_code)]
+pub fn load(name: &str) -> (Critters, String) {
+    let (options, html) = load_options(name);
+    (Critters::new(options), html)
 }
