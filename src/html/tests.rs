@@ -262,3 +262,27 @@ fn specificity() {
     assert!(specificities[0] > specificities[2]);
     assert!(specificities[1] > specificities[2]);
 }
+
+/// The matcher panics on components it has not implemented, and this entry point is reachable
+/// without the screening `process_style` does, so a selector it cannot evaluate must simply
+/// never match.
+#[test]
+fn select_ignores_selectors_the_matcher_cannot_evaluate() {
+    let html = r"
+<!doctype html>
+<title>Test case</title>
+<div class=foo><p>Bar</div>
+";
+
+    let document = parse_html().one(html);
+
+    assert_eq!(document.select(":has(p)").unwrap().count(), 0);
+    assert_eq!(document.select(":has(p), p").unwrap().count(), 1);
+    assert!(document.select_first(":has(p)").is_err());
+
+    let selectors = Selectors::compile("p:nth-child(1 of .foo), p").unwrap();
+    assert_eq!(
+        selectors.filter(document.descendants().elements()).count(),
+        1
+    );
+}
