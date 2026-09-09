@@ -4,6 +4,11 @@ Rapidly inline your Astro site's critical CSS with [`critters-rs`](https://githu
 
 This Astro integration operates on the generated output for the static pages on your site, inlining the critical CSS within each HTML file while deferring unused styles to be loaded after the page has painted. This should help to reduce delays in FCP and LCP caused by stylesheet loading and parsing.
 
+## Compatibility
+
+`@critters-rs/astro` supports Astro 4, 5, 6, and 7. Note that Astro 6 and later
+require Node.js 22.12.0 or newer.
+
 ## Installation
 
 ### Using `astro add`
