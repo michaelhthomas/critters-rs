@@ -1025,28 +1025,13 @@ fn exclude_external_edge_cases() {
     );
 }
 
-// The matching engine cannot parse modern pseudo-classes and pseudo-elements. Those selectors
-// are retained rather than treated as unused, and because each selector in a list is handled
-// individually, an unparseable member neither rescues nor condemns the ones beside it.
-#[test]
-fn retains_unparseable_selectors_in_selector_lists() {
-    let tmp_dir = create_test_folder(&[(
-        "style.css",
-        concat!(
-            "h1, .card:where(.featured) { color: blue; }\n",
-            ".absent, .widget::part(label) { color: red; }\n",
-            ".absent { color: orange; }",
-        ),
-    )]);
-
-    let html = construct_html(
-        r#"<link rel="stylesheet" href="style.css">"#,
-        r#"<h1>Hello World!</h1>"#,
-    );
+/// Helper for the pseudo-selector tests: run critters over a document with a single inline
+/// stylesheet and return the reduced CSS.
+fn reduce_inline_style(css: &str, body: &str) -> String {
+    let html = construct_html(&format!("<style>{css}</style>"), body);
 
     let critters = Critters::new(CrittersOptions {
-        path: tmp_dir.clone(),
-        external: true,
+        path: String::new(),
         ..Default::default()
     });
 
@@ -1055,24 +1040,99 @@ fn retains_unparseable_selectors_in_selector_lists() {
         .expect("Failed to inline critical css");
 
     let parser = critters_rs::html::parse_html();
-    let dom = parser.one(processed);
-
-    let inline_style = dom
+    parser
+        .one(processed)
         .select_first("head > style")
         .expect("Failed to locate inline style")
-        .text_contents();
+        .text_contents()
+}
 
-    // A matched selector survives alongside an unparseable one; compiling the list as a unit used
-    // to fail on `:where()` and discard `h1` with it.
-    assert!(
-        inline_style.contains("h1,.card:where(.featured){color:#00f}"),
-        "{inline_style}"
-    );
+#[test]
+fn keeps_pseudo_element_rules_for_present_elements() {
+    let css = ".present::before { content: \"a\" } \
+               .present::after { content: \"b\" } \
+               .absent::before { content: \"c\" } \
+               input::placeholder { color: red }";
 
-    // ...and an unparseable selector does not drag its unmatched siblings along with it.
-    assert!(
-        inline_style.contains(".widget::part(label){color:red}"),
-        "{inline_style}"
-    );
-    assert!(!inline_style.contains(".absent"), "{inline_style}");
+    let style = reduce_inline_style(css, r#"<p class="present">Hi</p>"#);
+
+    assert!(style.contains(".present:before"), "{style}");
+    assert!(style.contains(".present:after"), "{style}");
+    assert!(!style.contains(".absent"), "{style}");
+    assert!(!style.contains("placeholder"), "{style}");
+}
+
+#[test]
+fn keeps_stateful_pseudo_class_rules_for_present_elements() {
+    let css = ".present:hover { color: red } \
+               .present:focus-visible { color: green } \
+               .absent:hover { color: blue }";
+
+    let style = reduce_inline_style(css, r#"<p class="present">Hi</p>"#);
+
+    assert!(style.contains(".present:hover"), "{style}");
+    assert!(style.contains(".present:focus-visible"), "{style}");
+    assert!(!style.contains(".absent"), "{style}");
+}
+
+#[test]
+fn matches_is_and_where_selectors() {
+    let css = ":is(.present, .absent) { color: red } \
+               :where(.absent) p { color: green } \
+               :is(.absent) { color: blue }";
+
+    let style = reduce_inline_style(css, r#"<p class="present">Hi</p>"#);
+
+    assert!(style.contains(":is(.present,.absent)"), "{style}");
+    assert!(!style.contains(":where"), "{style}");
+    assert!(!style.contains(":is(.absent)"), "{style}");
+}
+
+#[test]
+fn only_link_pseudo_classes_require_a_link() {
+    let css = "a:visited { color: red } \
+               p:visited { color: green } \
+               a:any-link { color: blue }";
+
+    let style = reduce_inline_style(css, r#"<a href="/x">Hi</a><p>Nope</p>"#);
+
+    assert!(style.contains("a:visited"), "{style}");
+    assert!(style.contains("a:any-link"), "{style}");
+    assert!(!style.contains("p:visited"), "{style}");
+}
+
+/// `parcel_selectors` panics rather than returning `false` for the component types it has not
+/// implemented, so these must be screened out before matching and preserved instead of dropped.
+#[test]
+fn preserves_selectors_the_matcher_cannot_evaluate() {
+    let css = ".present:has(p) { color: red } \
+               .absent:has(p) { color: green } \
+               p:nth-child(2 of .present) { color: blue } \
+               td:nth-col(2) { color: fuchsia } \
+               :is(.absent, .absent:has(p)) { color: teal }";
+
+    let style = reduce_inline_style(css, r#"<div class="present"><p>Hi</p></div>"#);
+
+    assert!(style.contains(".present:has(p)"), "{style}");
+    assert!(style.contains(".absent:has(p)"), "{style}");
+    assert!(style.contains("nth-child(2 of .present)"), "{style}");
+    assert!(style.contains("nth-col(2)"), "{style}");
+    assert!(style.contains(":is(.absent,.absent:has(p))"), "{style}");
+}
+/// Each selector in a list is screened on its own, so a member the matcher cannot evaluate neither
+/// rescues nor condemns the ones beside it. Screening whole lists at a time used to discard every
+/// member once any one of them was unsupported.
+#[test]
+fn screens_selector_lists_member_by_member() {
+    let css = "h1, .absent:has(p) { color: blue } \
+               .absent, .present:has(p) { color: red }";
+
+    let style = reduce_inline_style(css, r#"<h1>Title</h1><div class="present"><p>Hi</p></div>"#);
+
+    // A matched selector survives beside an unevaluable one.
+    assert!(style.contains("h1,.absent:has(p)"), "{style}");
+
+    // An unevaluable selector does not drag an unmatched sibling along with it.
+    assert!(style.contains(".present:has(p){color:red}"), "{style}");
+    assert!(!style.contains(".absent,"), "{style}");
 }

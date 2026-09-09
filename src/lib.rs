@@ -51,7 +51,7 @@ use utils::{is_valid_media_query, regex, NodeRefExt, StyleRuleExt};
 #[cfg(feature = "use-napi")]
 use napi_derive::napi;
 
-use crate::html::{style_calculation, Selectors};
+use crate::html::{style_calculation, SelectorExt};
 
 #[doc(hidden)]
 pub mod html;
@@ -459,17 +459,12 @@ impl Critters {
         dom: NodeRef,
         critters_container: &html::NodeDataRef<html::ElementData>,
     ) -> anyhow::Result<String> {
-        let mut failed_selectors = Vec::new();
         let mut rules_to_remove = HashSet::new();
         let mut critical_keyframe_names: HashSet<String> = HashSet::new();
         let mut critical_fonts = String::new();
 
         let mut ast = StyleSheet::parse(sheet, Default::default())
             .map_err(|_| anyhow::Error::msg("Failed to parse stylesheet."))?;
-
-        // Collect selectors that fail to parse so we don't accidentally
-        // discard them due to an incompatibility.
-        let mut unmatchable_selectors: HashSet<String> = HashSet::new();
 
         // Precompute list of used selectors
         let all_selectors = ast
@@ -481,32 +476,12 @@ impl Critters {
                 _ => None,
             })
             .flat_map(|selectors| selectors.0.iter())
-            .filter_map(|selector| {
-                let css = selector
-                    .to_css_string(Default::default())
-                    .expect("Failed to write selector to string");
-
-                // The parse error borrows the string it was parsed from, so render it eagerly.
-                let compiled =
-                    Selectors::compile(&css).map_err(|err| format!("{} -> {:?}", css, err));
-
-                match compiled {
-                    Ok(compiled) => Some(compiled.0),
-                    Err(err) => {
-                        failed_selectors.push(err);
-                        unmatchable_selectors.insert(css);
-                        None
-                    }
-                }
-            })
-            .flatten()
+            .filter(|selector| selector.is_matchable())
+            .cloned()
             .collect::<HashSet<_>>();
 
         let used_selectors =
-            style_calculation::calculate_styles_for_tree(critters_container, all_selectors.clone())
-                .iter()
-                .map(|sel| sel.to_string())
-                .collect::<HashSet<_>>();
+            style_calculation::calculate_styles_for_tree(critters_container, all_selectors);
 
         // TODO: use a visitor to handle nested rules
         // First pass, mark rules not present in the document for removal
@@ -520,14 +495,21 @@ impl Critters {
                     .0
                     .iter()
                     .filter(|sel| {
-                        let selector = sel.to_css_string(Default::default()).unwrap();
-
-                        // include unsupported selectors
-                        if unmatchable_selectors.contains(&selector) {
+                        // Selectors the matching engine cannot evaluate are kept: dropping a rule
+                        // that might apply is worse than shipping a few extra bytes.
+                        if !sel.is_matchable() {
                             return true;
                         }
 
-                        // easy selectors
+                        // check DOM for elements matching selector
+                        if used_selectors.contains(*sel) {
+                            return true;
+                        }
+
+                        let selector = sel.to_css_string(Default::default()).unwrap();
+
+                        // Easy selectors. These sit at or above the container we traverse, so the
+                        // matcher never gets a chance to see them.
                         if selector == ":root"
                             || selector == "html"
                             || selector == "body"
@@ -537,17 +519,10 @@ impl Critters {
                         }
 
                         // allow rules
-                        if self
-                            .options
+                        self.options
                             .allow_rules
                             .iter()
                             .any(|m| m.matches(&selector))
-                        {
-                            return true;
-                        }
-
-                        // check DOM for elements matching selector
-                        used_selectors.contains(&selector)
                     })
                     .cloned()
                     .collect::<Vec<_>>();

@@ -1,22 +1,24 @@
 use std::{collections::HashSet, fs, path::PathBuf};
 
-use critters_rs::html::{parse_html, traits::*, ElementData, NodeDataRef, Selector, Selectors};
-use lightningcss::{stylesheet::StyleSheet, traits::ToCss};
+use critters_rs::html::{parse_html, traits::*, ElementData, NodeDataRef, Selector};
+use lightningcss::stylesheet::StyleSheet;
 use test_log::test;
 
-/// A naive implementation of style calculation for a tree structure.
-fn naive_calculate_styles_for_tree(
+/// A naive implementation of style calculation: match every selector against every element in the
+/// tree, with none of the indexing or bloom-filter fast rejection the real implementation uses.
+fn naive_calculate_styles_for_tree<'i>(
     element: &NodeDataRef<ElementData>,
-    selectors: Vec<Selector>,
-) -> Vec<Selector> {
+    selectors: Vec<Selector<'i>>,
+) -> Vec<Selector<'i>> {
+    let elements: Vec<_> = element
+        .as_node()
+        .inclusive_descendants()
+        .elements()
+        .collect();
+
     selectors
         .into_iter()
-        .filter(|selector| {
-            element
-                .as_node()
-                .select_first(&format!("{}", selector))
-                .is_ok()
-        })
+        .filter(|selector| elements.iter().any(|element| selector.matches(element)))
         .collect()
 }
 
@@ -59,25 +61,20 @@ fn check_style_calculation(name: &str) {
         .0
         .iter()
         .filter_map(|rule| match rule {
-            lightningcss::rules::CssRule::Style(style) => Some(style.selectors.clone()),
+            lightningcss::rules::CssRule::Style(style) => Some(&style.selectors),
             _ => None,
         })
-        .filter_map(|selectors| {
-            Selectors::compile(&selectors.to_css_string(Default::default()).unwrap()).ok()
-        })
-        .flat_map(|selectors| selectors.0)
+        .flat_map(|selectors| selectors.0.iter())
+        .filter(|selector| selector.is_matchable())
+        .cloned()
         .collect();
 
-    let expected = naive_calculate_styles_for_tree(&root, selectors.clone());
+    let expected: HashSet<Selector> = naive_calculate_styles_for_tree(&root, selectors.clone())
+        .into_iter()
+        .collect();
     let actual = critters_rs::html::style_calculation::calculate_styles_for_tree(&root, selectors);
 
-    let expected_set: HashSet<String> = expected
-        .iter()
-        .map(|selector| selector.to_string())
-        .collect();
-    let actual_set: HashSet<String> = actual.iter().map(|selector| selector.to_string()).collect();
-
-    assert_eq!(expected_set, actual_set);
+    assert_eq!(expected, actual);
 }
 
 macro_rules! real_world_sites {
