@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let critters = Critters::new(options);
     let result = critters.process(html_content)?;
-    
+
     println!("Processed HTML:\n{}", result);
 
     Ok(())

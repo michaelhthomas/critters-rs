@@ -492,13 +492,11 @@ impl Critters {
             .flat_map(|selectors| selectors.0)
             .collect::<HashSet<_>>();
 
-        let used_selectors = style_calculation::calculate_styles_for_tree(
-            critters_container,
-            all_selectors.clone(),
-        )
-        .iter()
-        .map(|sel| sel.to_string())
-        .collect::<HashSet<_>>();
+        let used_selectors =
+            style_calculation::calculate_styles_for_tree(critters_container, all_selectors.clone())
+                .iter()
+                .map(|sel| sel.to_string())
+                .collect::<HashSet<_>>();
 
         // TODO: use a visitor to handle nested rules
         // First pass, mark rules not present in the document for removal
