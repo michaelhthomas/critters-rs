@@ -1,5 +1,5 @@
 use html5ever::{local_name, LocalName};
-use selectors::{bloom::BloomFilter, Element};
+use parcel_selectors::{bloom::BloomFilter, Element};
 use smallvec::SmallVec;
 use string_cache::Atom;
 
@@ -81,7 +81,7 @@ impl StyleBloom {
         }
     }
 
-    /// Return the bloom filter used properly by the `selectors` crate.
+    /// Return the bloom filter used properly by the `parcel_selectors` crate.
     pub fn filter(&self) -> &BloomFilter {
         &self.filter
     }
