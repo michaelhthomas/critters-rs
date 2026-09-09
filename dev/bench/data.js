@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788970783705,
+  "lastUpdate": 1788972529880,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -625,6 +625,66 @@ window.BENCHMARK_DATA = {
             "name": "wikipedia_japanese_conjugation",
             "value": 399611183,
             "range": "± 13225753",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michael@cognitoforms.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "committer": {
+            "email": "michael@cognitoforms.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "distinct": true,
+          "id": "7852323cc0d6c5b517ed4e9ae2487200566b0e62",
+          "message": "chore: format",
+          "timestamp": "2026-09-09T12:37:00-04:00",
+          "tree_id": "fdfe3c9975e9ac47f207c6d0b914ea9d210fa69e",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/7852323cc0d6c5b517ed4e9ae2487200566b0e62"
+        },
+        "date": 1788972529228,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "html_standard",
+            "value": 1464955606,
+            "range": "± 25536094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "michaelt_xyz",
+            "value": 5438325,
+            "range": "± 45935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rust_wikipedia",
+            "value": 107013964,
+            "range": "± 3181124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "time_mag",
+            "value": 36690918,
+            "range": "± 466095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_2020s",
+            "value": 458405366,
+            "range": "± 33039602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_japanese_conjugation",
+            "value": 381908931,
+            "range": "± 24795328",
             "unit": "ns/iter"
           }
         ]
