@@ -88,24 +88,25 @@ impl<'i> RuleSet<'i> {
     }
 
     fn extract_key_selector(selector: &Selector) -> KeySelector {
-        // Find the rightmost compound selector (key selector) for indexing
-        if let Some(component) = selector.iter().last() {
+        // Scan the whole rightmost compound for something indexable, preferring the most
+        // selective key.
+        let mut key = KeySelector::Universal;
+        for component in selector.iter() {
             match component {
-                Component::ID(id) => {
-                    return KeySelector::Id(id.0.to_string());
-                }
+                Component::ID(id) => return KeySelector::Id(id.0.to_string()),
                 Component::Class(class) => {
-                    return KeySelector::Class(LocalName::from(&*class.0));
+                    key = KeySelector::Class(LocalName::from(&*class.0));
                 }
                 Component::LocalName(name) => {
-                    return KeySelector::Tag(LocalName::from(&*name.lower_name.0));
+                    if matches!(key, KeySelector::Universal) {
+                        key = KeySelector::Tag(LocalName::from(&*name.lower_name.0));
+                    }
                 }
                 _ => {}
             }
         }
 
-        // Fallback to universal bucket
-        KeySelector::Universal
+        key
     }
 
     /// Gets all rules that might match the given element from indexed buckets.
