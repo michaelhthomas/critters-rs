@@ -467,29 +467,39 @@ impl Critters {
         let mut ast = StyleSheet::parse(sheet, Default::default())
             .map_err(|_| anyhow::Error::msg("Failed to parse stylesheet."))?;
 
+        // Collect selectors that fail to parse so we don't accidentally
+        // discard them due to an incompatibility.
+        let mut unmatchable_selectors: HashSet<String> = HashSet::new();
+
         // Precompute list of used selectors
         let all_selectors = ast
             .rules
             .0
             .iter()
             .filter_map(|rule| match rule {
-                CssRule::Style(style_rule) => Some(style_rule.selectors.clone()),
+                CssRule::Style(style_rule) => Some(&style_rule.selectors),
                 _ => None,
             })
-            .filter_map(|selectors| {
-                match Selectors::compile(
-                    &selectors
-                        .to_css_string(Default::default())
-                        .expect("Failed to write selector to string"),
-                ) {
-                    Ok(selectors) => Some(selectors),
+            .flat_map(|selectors| selectors.0.iter())
+            .filter_map(|selector| {
+                let css = selector
+                    .to_css_string(Default::default())
+                    .expect("Failed to write selector to string");
+
+                // The parse error borrows the string it was parsed from, so render it eagerly.
+                let compiled =
+                    Selectors::compile(&css).map_err(|err| format!("{} -> {:?}", css, err));
+
+                match compiled {
+                    Ok(compiled) => Some(compiled.0),
                     Err(err) => {
-                        failed_selectors.push(format!("{} -> {:?}", selectors, err));
+                        failed_selectors.push(err);
+                        unmatchable_selectors.insert(css);
                         None
                     }
                 }
             })
-            .flat_map(|selectors| selectors.0)
+            .flatten()
             .collect::<HashSet<_>>();
 
         let used_selectors =
@@ -511,6 +521,12 @@ impl Critters {
                     .iter()
                     .filter(|sel| {
                         let selector = sel.to_css_string(Default::default()).unwrap();
+
+                        // include unsupported selectors
+                        if unmatchable_selectors.contains(&selector) {
+                            return true;
+                        }
+
                         // easy selectors
                         if selector == ":root"
                             || selector == "html"
@@ -531,8 +547,6 @@ impl Critters {
                         }
 
                         // check DOM for elements matching selector
-                        // TODO: consider including failed selectors (mainly pseudo selectors)
-                        // by inverting this check to exclude unused selectors
                         used_selectors.contains(&selector)
                     })
                     .cloned()
