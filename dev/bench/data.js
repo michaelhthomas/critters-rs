@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789002407253,
+  "lastUpdate": 1789235955652,
   "repoUrl": "https://github.com/michaelhthomas/critters-rs",
   "entries": {
     "critters_rs": [
@@ -745,6 +745,66 @@ window.BENCHMARK_DATA = {
             "name": "wikipedia_japanese_conjugation",
             "value": 268331600,
             "range": "± 4510794",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michaelhthomas@Outlook.com",
+            "name": "Michael Thomas",
+            "username": "michaelhthomas"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "535820e64bcd325b97f9e3c11069b13d0bc546b0",
+          "message": "fix: retain selectors the matching engine cannot parse (#26)\n\n* fix: retain selectors the matching engine cannot parse\n\n* test: cover selector lists mixing supported and unparseable selectors",
+          "timestamp": "2026-09-12T13:47:36-04:00",
+          "tree_id": "e982ce8d0e52cdabe56e5998fb7267b976411578",
+          "url": "https://github.com/michaelhthomas/critters-rs/commit/535820e64bcd325b97f9e3c11069b13d0bc546b0"
+        },
+        "date": 1789235954976,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "html_standard",
+            "value": 1557458950,
+            "range": "± 47420900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "michaelt_xyz",
+            "value": 5413973,
+            "range": "± 28366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rust_wikipedia",
+            "value": 105024896,
+            "range": "± 1349341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "time_mag",
+            "value": 35368084,
+            "range": "± 472426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_2020s",
+            "value": 451674546,
+            "range": "± 32864581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "wikipedia_japanese_conjugation",
+            "value": 405784342,
+            "range": "± 33927562",
             "unit": "ns/iter"
           }
         ]
