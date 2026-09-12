@@ -1,5 +1,5 @@
 use crate::html::NodeRef;
-use lightningcss::{rules::style::StyleRule, traits::Parse};
+use lightningcss::{rules::style::StyleRule, traits::ParseWithOptions};
 
 /// Locate all the HTML files within a given directory.
 #[cfg(feature = "directory")]
@@ -80,7 +80,7 @@ impl ProgressBarExt for indicatif::ProgressBar {
 }
 
 pub fn is_valid_media_query(s: &str) -> bool {
-    lightningcss::media_query::MediaQuery::parse_string(s).is_ok()
+    lightningcss::media_query::MediaQuery::parse_string_with_options(s, Default::default()).is_ok()
 }
 
 /// Macro to create a cached Regular expression literal.
