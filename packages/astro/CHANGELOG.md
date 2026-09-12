@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.2.0...astro-v1.3.0) (2026-09-12)
+
+
+### Bug Fixes
+
+* correct path for Astro package main entry ([#21](https://github.com/michaelhthomas/critters-rs/issues/21)) ([4b595f5](https://github.com/michaelhthomas/critters-rs/commit/4b595f5661c190ec955ae4fe1229fa0263a05cd3))
+
 ## [1.2.0](https://github.com/michaelhthomas/critters-rs/compare/astro-v1.1.3...astro-v1.2.0) (2025-09-25)
 
 

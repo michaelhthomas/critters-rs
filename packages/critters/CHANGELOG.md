@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.2.0...critters-v1.3.0) (2026-09-12)
+
+
+### Bug Fixes
+
+* **critters:** export typescript declarations with .ts file extension ([d7618af](https://github.com/michaelhthomas/critters-rs/commit/d7618afd2d26025c8ec647e62111c4da6daa1914))
+
 ## [1.2.0](https://github.com/michaelhthomas/critters-rs/compare/critters-v1.1.3...critters-v1.2.0) (2025-09-25)
 
 
