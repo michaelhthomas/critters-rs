@@ -2,151 +2,44 @@ use crate::html::attributes::ExpandedName;
 use crate::html::iter::{NodeIterator, Select};
 use crate::html::node_data_ref::NodeDataRef;
 use crate::html::tree::{ElementData, Node, NodeData, NodeRef};
-use cssparser::{self, CowRcStr, ParseError, SourceLocation, ToCss};
 use html5ever::{local_name, namespace_url, ns, LocalName, Namespace};
-use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
-use selectors::context::QuirksMode;
-use selectors::parser::{
-    AncestorHashes, NonTSPseudoClass, Parser, Selector as GenericSelector, SelectorImpl,
-    SelectorList,
-};
-use selectors::parser::{SelectorIter, SelectorParseErrorKind};
-use selectors::{self, matching, OpaqueElement};
+use lightningcss::selector::{Component, PseudoClass, PseudoElement};
+use lightningcss::traits::ParseWithOptions;
+use lightningcss::values::ident::Ident;
+use lightningcss::values::string::{CSSString, CowArcStr};
+use parcel_selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
+use parcel_selectors::bloom::BLOOM_HASH_MASK;
+use parcel_selectors::context::QuirksMode;
+use parcel_selectors::matching::{self, MatchingContext, MatchingMode};
+use parcel_selectors::parser::{AncestorHashes, Combinator, NthType, SelectorImpl, SelectorIter};
+use parcel_selectors::{Element, OpaqueElement};
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KuchikiSelectors;
-
-impl SelectorImpl for KuchikiSelectors {
-    type AttrValue = String;
-    type Identifier = LocalName;
-    type ClassName = LocalName;
-    type LocalName = LocalName;
-    type PartName = LocalName;
-    type NamespacePrefix = LocalName;
-    type NamespaceUrl = Namespace;
-    type BorrowedNamespaceUrl = Namespace;
-    type BorrowedLocalName = LocalName;
-
-    type NonTSPseudoClass = PseudoClass;
-    type PseudoElement = PseudoElement;
-
-    type ExtraMatchingData = ();
+/// Recovers the [`SelectorImpl`] that `lightningcss` parses its selectors with.
+///
+/// `lightningcss` declares it in a private module, so it cannot be named from outside the crate
+/// even though it leaks through the public `Selector` and `Component` aliases. Projecting it back
+/// out is the only way to write `impl Element for _` against it.
+pub trait ImplOf<'i> {
+    /// The `SelectorImpl` the selector was parsed with.
+    type Impl: SelectorImpl<'i>;
 }
 
-struct KuchikiParser;
-
-impl<'i> Parser<'i> for KuchikiParser {
-    type Impl = KuchikiSelectors;
-    type Error = SelectorParseErrorKind<'i>;
-
-    fn parse_non_ts_pseudo_class(
-        &self,
-        location: SourceLocation,
-        name: CowRcStr<'i>,
-    ) -> Result<PseudoClass, ParseError<'i, SelectorParseErrorKind<'i>>> {
-        use self::PseudoClass::*;
-        if name.eq_ignore_ascii_case("any-link") {
-            Ok(AnyLink)
-        } else if name.eq_ignore_ascii_case("link") {
-            Ok(Link)
-        } else if name.eq_ignore_ascii_case("visited") {
-            Ok(Visited)
-        } else if name.eq_ignore_ascii_case("active") {
-            Ok(Active)
-        } else if name.eq_ignore_ascii_case("focus") {
-            Ok(Focus)
-        } else if name.eq_ignore_ascii_case("hover") {
-            Ok(Hover)
-        } else if name.eq_ignore_ascii_case("enabled") {
-            Ok(Enabled)
-        } else if name.eq_ignore_ascii_case("disabled") {
-            Ok(Disabled)
-        } else if name.eq_ignore_ascii_case("checked") {
-            Ok(Checked)
-        } else if name.eq_ignore_ascii_case("indeterminate") {
-            Ok(Indeterminate)
-        } else {
-            Err(
-                location.new_custom_error(SelectorParseErrorKind::UnsupportedPseudoClassOrElement(
-                    name,
-                )),
-            )
-        }
-    }
+impl<'i, I: SelectorImpl<'i>> ImplOf<'i> for parcel_selectors::parser::Selector<'i, I> {
+    type Impl = I;
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
-pub enum PseudoClass {
-    AnyLink,
-    Link,
-    Visited,
-    Active,
-    Focus,
-    Hover,
-    Enabled,
-    Disabled,
-    Checked,
-    Indeterminate,
-}
+/// The `SelectorImpl` shared by both backends.
+pub type LightningCss<'i> = <lightningcss::selector::Selector<'i> as ImplOf<'i>>::Impl;
 
-impl NonTSPseudoClass for PseudoClass {
-    type Impl = KuchikiSelectors;
+/// A parsed CSS selector.
+pub type Selector<'i> = lightningcss::selector::Selector<'i>;
 
-    fn is_active_or_hover(&self) -> bool {
-        matches!(*self, PseudoClass::Active | PseudoClass::Hover)
-    }
+/// A parsed list of CSS selectors.
+pub type Selectors<'i> = lightningcss::selector::SelectorList<'i>;
 
-    fn is_user_action_state(&self) -> bool {
-        matches!(
-            *self,
-            PseudoClass::Active | PseudoClass::Hover | PseudoClass::Focus
-        )
-    }
-
-    fn has_zero_specificity(&self) -> bool {
-        false
-    }
-}
-
-impl ToCss for PseudoClass {
-    fn to_css<W>(&self, dest: &mut W) -> fmt::Result
-    where
-        W: fmt::Write,
-    {
-        dest.write_str(match *self {
-            PseudoClass::AnyLink => ":any-link",
-            PseudoClass::Link => ":link",
-            PseudoClass::Visited => ":visited",
-            PseudoClass::Active => ":active",
-            PseudoClass::Focus => ":focus",
-            PseudoClass::Hover => ":hover",
-            PseudoClass::Enabled => ":enabled",
-            PseudoClass::Disabled => ":disabled",
-            PseudoClass::Checked => ":checked",
-            PseudoClass::Indeterminate => ":indeterminate",
-        })
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
-pub enum PseudoElement {}
-
-impl ToCss for PseudoElement {
-    fn to_css<W>(&self, _dest: &mut W) -> fmt::Result
-    where
-        W: fmt::Write,
-    {
-        match *self {}
-    }
-}
-
-impl selectors::parser::PseudoElement for PseudoElement {
-    type Impl = KuchikiSelectors;
-}
-
-impl selectors::Element for NodeDataRef<ElementData> {
-    type Impl = KuchikiSelectors;
+impl<'i> Element<'i> for NodeDataRef<ElementData> {
+    type Impl = LightningCss<'i>;
 
     #[inline]
     fn opaque(&self) -> OpaqueElement {
@@ -202,26 +95,21 @@ impl selectors::Element for NodeDataRef<ElementData> {
     }
 
     #[inline]
-    fn has_local_name(&self, name: &LocalName) -> bool {
-        self.name.local == *name
+    fn has_local_name(&self, name: &Ident<'i>) -> bool {
+        *self.name.local == *name.0
     }
     #[inline]
-    fn has_namespace(&self, namespace: &Namespace) -> bool {
-        self.name.ns == *namespace
+    fn has_namespace(&self, namespace: &CowArcStr<'i>) -> bool {
+        *self.name.ns == **namespace
     }
 
     #[inline]
-    fn is_part(&self, _name: &LocalName) -> bool {
+    fn is_part(&self, _name: &Ident<'i>) -> bool {
         false
     }
 
     #[inline]
-    fn exported_part(&self, _: &LocalName) -> Option<LocalName> {
-        None
-    }
-
-    #[inline]
-    fn imported_part(&self, _: &LocalName) -> Option<LocalName> {
+    fn imported_part(&self, _: &Ident<'i>) -> Option<Ident<'i>> {
         None
     }
 
@@ -250,287 +138,295 @@ impl selectors::Element for NodeDataRef<ElementData> {
     }
 
     #[inline]
-    fn has_id(&self, id: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
+    fn has_id(&self, id: &Ident<'i>, case_sensitivity: CaseSensitivity) -> bool {
         self.attributes
             .borrow()
             .get(local_name!("id"))
-            .is_some_and(|id_attr| case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes()))
+            .is_some_and(|id_attr| case_sensitivity.eq(id.0.as_bytes(), id_attr.as_bytes()))
     }
 
     #[inline]
-    fn has_class(&self, name: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
-        let name = name.as_bytes();
+    fn has_class(&self, name: &Ident<'i>, case_sensitivity: CaseSensitivity) -> bool {
+        let name = name.0.as_bytes();
         !name.is_empty() && self.attributes.borrow().has_class(name, case_sensitivity)
     }
 
     #[inline]
     fn attr_matches(
         &self,
-        ns: &NamespaceConstraint<&Namespace>,
-        local_name: &LocalName,
-        operation: &AttrSelectorOperation<&String>,
+        ns: &NamespaceConstraint<&CowArcStr<'i>>,
+        local_name: &Ident<'i>,
+        operation: &AttrSelectorOperation<&CSSString<'i>>,
     ) -> bool {
+        // Scanning beats a map lookup: keying into the map would mean interning an atom for
+        // every attribute selector tested, and elements carry few attributes.
         let attrs = self.attributes.borrow();
-        match *ns {
-            NamespaceConstraint::Any => attrs
-                .map
-                .iter()
-                .any(|(name, attr)| name.local == *local_name && operation.eval_str(&attr.value)),
-            NamespaceConstraint::Specific(ns_url) => attrs
-                .map
-                .get(&ExpandedName::new(ns_url, local_name.clone()))
-                .is_some_and(|attr| operation.eval_str(&attr.value)),
-        }
+        attrs.map.iter().any(|(name, attr)| {
+            *name.local == *local_name.0
+                && match *ns {
+                    NamespaceConstraint::Any => true,
+                    NamespaceConstraint::Specific(ns_url) => *name.ns == **ns_url,
+                }
+                && operation.eval_str(&attr.value)
+        })
     }
 
+    /// Pseudo-elements are transparent: `.foo::before` is kept exactly when `.foo` is present.
     fn match_pseudo_element(
         &self,
-        pseudo: &PseudoElement,
-        _context: &mut matching::MatchingContext<KuchikiSelectors>,
+        _pseudo: &PseudoElement<'i>,
+        _context: &mut MatchingContext<'_, 'i, LightningCss<'i>>,
     ) -> bool {
-        match *pseudo {}
+        true
     }
 
+    /// Since we match pseudo-elements transparently against real elements, the originating element
+    /// is this element itself. The default returns the parent, which would look for `.foo` one
+    /// level too high in `.foo::before`.
+    #[inline]
+    fn pseudo_element_originating_element(&self) -> Option<Self> {
+        Some(self.clone())
+    }
+
+    /// State a static document cannot tell us about, so it matches: dropping the rule would strip
+    /// styles needed the moment the user interacts. Links are the exception, being observable.
     fn match_non_ts_pseudo_class<F>(
         &self,
-        pseudo: &PseudoClass,
-        _context: &mut matching::MatchingContext<KuchikiSelectors>,
+        pseudo: &PseudoClass<'i>,
+        context: &mut MatchingContext<'_, 'i, LightningCss<'i>>,
         _flags_setter: &mut F,
     ) -> bool
     where
         F: FnMut(&Self, matching::ElementSelectorFlags),
     {
-        use self::PseudoClass::*;
-        match *pseudo {
-            Active | Focus | Hover | Enabled | Disabled | Checked | Indeterminate | Visited => {
-                false
-            }
-            AnyLink | Link => {
-                self.name.ns == ns!(html)
-                    && matches!(
-                        self.name.local,
-                        local_name!("a") | local_name!("area") | local_name!("link")
-                    )
-                    && self.attributes.borrow().contains(local_name!("href"))
-            }
+        use PseudoClass::*;
+        match pseudo {
+            // Being a link at all is statically observable.
+            AnyLink(_) => self.is_link(),
+            // Which link state, though, is not: a non-link is never in one, but a link could be
+            // in either, so fall through to the unknown-state answer below.
+            Link | LocalLink | Visited => self.is_link() && !context.in_negation(),
+            // The state is unknown, so answer whichever way retains the rule: `true` normally,
+            // and `false` under `:not`, where the matcher inverts the answer.
+            _ => !context.in_negation(),
         }
     }
 }
 
-/// A pre-compiled list of CSS Selectors.
-pub struct Selectors(pub Vec<Selector>);
-
-/// A pre-compiled CSS Selector.
-#[derive(Clone, PartialEq, Eq)]
-pub struct Selector(GenericSelector<KuchikiSelectors>);
-
-impl Selector {
-    /// Returns an iterator over this selector in matching order (right-to-left).
-    /// When a combinator is reached, the iterator will return None, and
-    /// next_sequence() may be called to continue to the next sequence.
-    pub fn iter(&self) -> SelectorIter<'_, KuchikiSelectors> {
-        self.0.iter()
-    }
-
+/// Extension methods for a compiled selector.
+pub trait SelectorExt<'i> {
     /// Returns whether the given element matches this selector.
-    #[inline]
-    pub fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
-        let mut context = matching::MatchingContext::new(
-            matching::MatchingMode::Normal,
-            None,
-            None,
-            QuirksMode::NoQuirks,
-        );
-        matching::matches_selector(&self.0, 0, None, element, &mut context, &mut |_, _| {})
-    }
+    fn matches(&self, element: &NodeDataRef<ElementData>) -> bool;
 
     /// Returns whether the given element matches this selector using the given matching context.
-    #[inline]
-    pub fn matches_with_context(
+    /// Passing `hashes` lets the context's bloom filter fast-reject the selector.
+    fn matches_with_context(
         &self,
         element: &NodeDataRef<ElementData>,
         hashes: Option<&AncestorHashes>,
-        context: &mut matching::MatchingContext<KuchikiSelectors>,
+        context: &mut MatchingContext<'_, 'i, LightningCss<'i>>,
+    ) -> bool;
+
+    /// Computes the ancestor hashes used to fast-reject this selector against the bloom filter.
+    fn ancestor_hashes(&self) -> AncestorHashes;
+
+    /// Returns whether this selector can be handed to the matching engine at all.
+    ///
+    /// False for components the engine panics on rather than returning `false` for, and for ones
+    /// this backend cannot answer. Callers screen with this and decide what to do with the rest.
+    fn is_matchable(&self) -> bool;
+}
+
+impl<'i> SelectorExt<'i> for Selector<'i> {
+    #[inline]
+    fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
+        let mut context =
+            MatchingContext::new(MatchingMode::Normal, None, None, QuirksMode::NoQuirks);
+        self.matches_with_context(element, None, &mut context)
+    }
+
+    #[inline]
+    fn matches_with_context(
+        &self,
+        element: &NodeDataRef<ElementData>,
+        hashes: Option<&AncestorHashes>,
+        context: &mut MatchingContext<'_, 'i, LightningCss<'i>>,
     ) -> bool {
-        matching::matches_selector(&self.0, 0, hashes, element, context, &mut |_, _| {})
+        matching::matches_selector(self, 0, hashes, element, context, &mut |_, _| {})
     }
 
-    /// Return the specificity of this selector.
-    pub fn specificity(&self) -> Specificity {
-        Specificity(self.0.specificity())
-    }
+    fn ancestor_hashes(&self) -> AncestorHashes {
+        let mut hashes = [0u32; 4];
+        let mut len = 0;
+        collect_ancestor_hashes(self.iter(), &mut hashes, &mut len);
+        debug_assert!(len <= 4);
 
-    pub(crate) fn ancestor_hashes(&self) -> AncestorHashes {
-        AncestorHashes::new(&self.0, QuirksMode::NoQuirks)
-    }
-}
+        // Pack the fourth hash, if there is one, into the upper byte of each of the other three.
+        if len == 4 {
+            let fourth = hashes[3];
+            hashes[0] |= (fourth & 0x0000_00ff) << 24;
+            hashes[1] |= (fourth & 0x0000_ff00) << 16;
+            hashes[2] |= (fourth & 0x00ff_0000) << 8;
+        }
 
-/// Implements hashing for CSS selectors. Unfortunately, the `selectors` crate does not provide a
-/// direct way to hash a selector, so we have to do some manual labor.
-mod hashing {
-    use crate::html::select::KuchikiSelectors;
-    use selectors::attr::NamespaceConstraint;
-    use std::hash::Hash;
-
-    fn hash_component<H: std::hash::Hasher>(
-        c: &selectors::parser::Component<KuchikiSelectors>,
-        state: &mut H,
-    ) {
-        std::mem::discriminant(c).hash(state);
-        match c {
-            selectors::parser::Component::Combinator(combinator) => {
-                std::mem::discriminant(combinator).hash(state);
-            }
-            selectors::parser::Component::DefaultNamespace(ns) => ns.hash(state),
-            selectors::parser::Component::Namespace(pre, url) => {
-                pre.hash(state);
-                url.hash(state);
-            }
-            selectors::parser::Component::LocalName(local_name) => {
-                local_name.name.hash(state);
-                local_name.lower_name.hash(state);
-            }
-            selectors::parser::Component::ID(id) => id.hash(state),
-            selectors::parser::Component::Class(class) => class.hash(state),
-            selectors::parser::Component::AttributeInNoNamespaceExists {
-                local_name,
-                local_name_lower,
-            } => {
-                local_name.hash(state);
-                local_name_lower.hash(state);
-            }
-            selectors::parser::Component::AttributeInNoNamespace {
-                local_name,
-                operator,
-                value,
-                case_sensitivity,
-                never_matches,
-            } => {
-                local_name.hash(state);
-                std::mem::discriminant(operator).hash(state);
-                value.hash(state);
-                std::mem::discriminant(case_sensitivity).hash(state);
-                never_matches.hash(state);
-            }
-            selectors::parser::Component::AttributeOther(attr_selector_with_optional_namespace) => {
-                if let Some(namespace) = &attr_selector_with_optional_namespace.namespace {
-                    std::mem::discriminant(namespace).hash(state);
-                    match &namespace {
-                        NamespaceConstraint::Specific(url) => url.hash(state),
-                        NamespaceConstraint::Any => {}
-                    }
-                }
-                attr_selector_with_optional_namespace.local_name.hash(state);
-                attr_selector_with_optional_namespace
-                    .local_name_lower
-                    .hash(state);
-                std::mem::discriminant(&attr_selector_with_optional_namespace.operation)
-                    .hash(state);
-                match &attr_selector_with_optional_namespace.operation {
-                    selectors::attr::ParsedAttrSelectorOperation::WithValue {
-                        operator,
-                        case_sensitivity,
-                        expected_value,
-                    } => {
-                        std::mem::discriminant(operator).hash(state);
-                        std::mem::discriminant(case_sensitivity).hash(state);
-                        expected_value.hash(state);
-                    }
-                    selectors::attr::ParsedAttrSelectorOperation::Exists => {}
-                }
-                attr_selector_with_optional_namespace
-                    .never_matches
-                    .hash(state);
-            }
-            selectors::parser::Component::Negation(thin_boxed_slice) => {
-                thin_boxed_slice
-                    .iter()
-                    .for_each(|c| hash_component(c, state));
-            }
-            selectors::parser::Component::NthChild(i, j) => {
-                i.hash(state);
-                j.hash(state);
-            }
-            selectors::parser::Component::NthLastChild(i, j) => {
-                i.hash(state);
-                j.hash(state);
-            }
-            selectors::parser::Component::NthOfType(i, j) => {
-                i.hash(state);
-                j.hash(state);
-            }
-            selectors::parser::Component::NthLastOfType(i, j) => {
-                i.hash(state);
-                j.hash(state);
-            }
-            selectors::parser::Component::NonTSPseudoClass(class) => class.hash(state),
-            selectors::parser::Component::Slotted(selector) => hash_selector(selector, state),
-            selectors::parser::Component::Part(items) => {
-                items.iter().for_each(|item| item.hash(state))
-            }
-            selectors::parser::Component::Host(selector) => {
-                if let Some(selector) = selector {
-                    hash_selector(selector, state)
-                }
-            }
-            selectors::parser::Component::PseudoElement(el) => el.hash(state),
-            selectors::parser::Component::ExplicitAnyNamespace => {}
-            selectors::parser::Component::ExplicitNoNamespace => {}
-            selectors::parser::Component::ExplicitUniversalType => {}
-            selectors::parser::Component::FirstChild => {}
-            selectors::parser::Component::LastChild => {}
-            selectors::parser::Component::OnlyChild => {}
-            selectors::parser::Component::Root => {}
-            selectors::parser::Component::Empty => {}
-            selectors::parser::Component::Scope => {}
-            selectors::parser::Component::FirstOfType => {}
-            selectors::parser::Component::LastOfType => {}
-            selectors::parser::Component::OnlyOfType => {}
+        AncestorHashes {
+            packed_hashes: [hashes[0], hashes[1], hashes[2]],
         }
     }
 
-    pub fn hash_selector<H: std::hash::Hasher>(
-        selector: &selectors::parser::Selector<KuchikiSelectors>,
-        state: &mut H,
-    ) {
-        selector.iter().for_each(|c| hash_component(c, state));
-    }
-}
-impl std::hash::Hash for Selector {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        hashing::hash_selector(&self.0, state);
+    fn is_matchable(&self) -> bool {
+        self.iter_raw_match_order().all(is_component_matchable)
     }
 }
 
-/// The specificity of a selector.
-///
-/// Opaque, but ordered.
-///
-/// Determines precedence in the cascading algorithm.
-/// When equal, a rule later in source order takes precedence.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Specificity(u32);
+fn is_component_matchable(component: &Component<'_>) -> bool {
+    match component {
+        // The matching engine hits an `unreachable!()`/`todo!()` for these, not `false`.
+        Component::Has(_) | Component::Nesting | Component::NthOf(_) => false,
+        Component::Nth(nth) => !matches!(nth.ty, NthType::Col | NthType::LastCol),
+        // Nested lists too: a `:has()` inside an `:is()` panics just the same. `Component::visit`
+        // skips `Has` and `Any` sublists, hence the manual walk.
+        Component::Negation(list)
+        | Component::Is(list)
+        | Component::Where(list)
+        | Component::Any(_, list) => list.iter().all(|selector| selector.is_matchable()),
+        // There is no shadow tree here -- `is_part` is always false and there is no shadow host --
+        // so the matcher would report these as non-matching instead of testing them.
+        Component::Slotted(_) | Component::Host(_) | Component::Part(_) => false,
+        _ => true,
+    }
+}
 
-impl Selectors {
-    /// Compile a list of selectors. This may fail on syntax errors or unsupported selectors.
-    #[inline]
-    pub fn compile(s: &str) -> Result<Selectors, ParseError<'_, SelectorParseErrorKind<'_>>> {
-        let mut input = cssparser::ParserInput::new(s);
-        match SelectorList::parse(&KuchikiParser, &mut cssparser::Parser::new(&mut input)) {
-            Ok(list) => Ok(Selectors(list.0.into_iter().map(Selector).collect())),
-            Err(err) => Err(err),
+/// Hashes a component the way [`crate::html::filter`] hashes the corresponding part of an element:
+/// via the `html5ever` atom's precomputed hash. Both sides must agree, or valid matches are lost.
+#[inline]
+fn local_name_hash(name: &str) -> u32 {
+    LocalName::from(name).get_hash()
+}
+
+#[inline]
+fn namespace_hash(url: &str) -> u32 {
+    Namespace::from(url).get_hash()
+}
+
+/// Port of `parcel_selectors`' private `AncestorIter`. Yields the components of every ancestor
+/// compound, skipping the rightmost one and any sequence joined by a sibling combinator.
+struct AncestorIter<'a, 'i>(SelectorIter<'a, 'i, LightningCss<'i>>);
+
+impl<'a, 'i> AncestorIter<'a, 'i> {
+    fn new(inner: SelectorIter<'a, 'i, LightningCss<'i>>) -> Self {
+        let mut iter = AncestorIter(inner);
+        iter.skip_until_ancestor();
+        iter
+    }
+
+    /// Skips a sequence of simple selectors and all subsequent sequences until
+    /// a non-pseudo-element ancestor combinator is reached.
+    fn skip_until_ancestor(&mut self) {
+        loop {
+            while self.0.next().is_some() {}
+            if self
+                .0
+                .next_sequence()
+                .is_none_or(|c| matches!(c, Combinator::Child | Combinator::Descendant))
+            {
+                break;
+            }
+        }
+    }
+}
+
+impl<'a, 'i> Iterator for AncestorIter<'a, 'i> {
+    type Item = &'a Component<'i>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(next) = self.0.next() {
+            return Some(next);
+        }
+
+        if let Some(combinator) = self.0.next_sequence() {
+            if !matches!(combinator, Combinator::Child | Combinator::Descendant) {
+                self.skip_until_ancestor();
+            }
+        }
+
+        self.0.next()
+    }
+}
+
+/// Port of `parcel_selectors`' private `collect_ancestor_hashes`. Its own `AncestorHashes::new`
+/// needs `PrecomputedHash`, which `lightningcss`' `Ident`/`CowArcStr` lack and we cannot add.
+fn collect_ancestor_hashes(
+    iter: SelectorIter<'_, '_, LightningCss<'_>>,
+    hashes: &mut [u32; 4],
+    len: &mut usize,
+) -> bool {
+    for component in AncestorIter::new(iter) {
+        let hash = match component {
+            Component::LocalName(name) => {
+                // Only insert the local-name into the filter if it's all
+                // lowercase.  Otherwise we would need to test both hashes, and
+                // our data structures aren't really set up for that.
+                if name.name != name.lower_name {
+                    continue;
+                }
+                local_name_hash(&name.name.0)
+            }
+            Component::DefaultNamespace(url) | Component::Namespace(_, url) => namespace_hash(url),
+            Component::ID(id) => local_name_hash(&id.0),
+            Component::Class(class) => local_name_hash(&class.0),
+            Component::Is(list) | Component::Where(list) => {
+                // :where and :is OR their selectors, so we can't put any hash
+                // in the filter if there's more than one selector, as that'd
+                // exclude elements that may match one of the other selectors.
+                if list.len() == 1 && !collect_ancestor_hashes(list[0].iter(), hashes, len) {
+                    return false;
+                }
+                continue;
+            }
+            _ => continue,
+        };
+
+        hashes[*len] = hash & BLOOM_HASH_MASK;
+        *len += 1;
+        if *len == hashes.len() {
+            return false;
         }
     }
 
-    /// Returns whether the given element matches this list of selectors.
-    #[inline]
-    pub fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
-        self.0.iter().any(|s| s.matches(element))
-    }
+    true
+}
+
+/// Extension methods for a compiled selector list.
+pub trait SelectorsExt<'i>: Sized {
+    /// Compile a list of selectors. This may fail on syntax errors.
+    fn compile(s: &'i str) -> Result<Self, SelectorParseError>;
+
+    /// Returns whether the given element matches any selector in this list.
+    fn matches(&self, element: &NodeDataRef<ElementData>) -> bool;
 
     /// Filter an element iterator, yielding those matching this list of selectors.
+    fn filter<I>(self, iter: I) -> Select<'i, I>
+    where
+        I: Iterator<Item = NodeDataRef<ElementData>>;
+}
+
+impl<'i> SelectorsExt<'i> for Selectors<'i> {
     #[inline]
-    pub fn filter<I>(&self, iter: I) -> Select<I, &Selectors>
+    fn compile(s: &'i str) -> Result<Self, SelectorParseError> {
+        Selectors::parse_string_with_options(s, Default::default())
+            .map_err(|err| SelectorParseError(format!("{err:?}")))
+    }
+
+    #[inline]
+    fn matches(&self, element: &NodeDataRef<ElementData>) -> bool {
+        let mut context =
+            MatchingContext::new(MatchingMode::Normal, None, None, QuirksMode::NoQuirks);
+        matching::matches_selector_list(self, element, &mut context)
+    }
+
+    #[inline]
+    fn filter<I>(self, iter: I) -> Select<'i, I>
     where
         I: Iterator<Item = NodeDataRef<ElementData>>,
     {
@@ -541,43 +437,14 @@ impl Selectors {
     }
 }
 
-impl ::std::str::FromStr for Selectors {
-    type Err = ();
-    #[inline]
-    fn from_str(s: &str) -> Result<Selectors, ()> {
-        Selectors::compile(s).map_err(|_| ())
+/// The error returned when a selector list fails to parse.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SelectorParseError(String);
+
+impl fmt::Display for SelectorParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
-impl fmt::Display for Selector {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.to_css(f)
-    }
-}
-
-impl fmt::Display for Selectors {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut iter = self.0.iter();
-        let first = iter
-            .next()
-            .expect("Empty Selectors, should contain at least one selector");
-        first.0.to_css(f)?;
-        for selector in iter {
-            f.write_str(", ")?;
-            selector.0.to_css(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl fmt::Debug for Selector {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Selectors {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
+impl std::error::Error for SelectorParseError {}
