@@ -13,7 +13,7 @@ use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
 /// A CSS rule with its selector and ancestor hashes.
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 struct Rule<'i> {
     /// The CSS selector for this rule
     pub selector: Selector<'i>,
@@ -29,15 +29,24 @@ impl<'i> Rule<'i> {
     }
 }
 
-impl std::hash::Hash for Rule<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.selector.hash(state);
+/// A reference to a Rule which is hashed by address.
+///
+/// Since rules are stored in a RuleSet throughout the matching process,
+/// their pointers are stable and faster to hash than the whole selector.
+#[derive(Debug, Clone, Copy)]
+struct RuleRef<'a, 'i>(&'a Rule<'i>);
+
+impl Eq for RuleRef<'_, '_> {}
+
+impl PartialEq for RuleRef<'_, '_> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
     }
 }
 
-impl PartialEq for Rule<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.selector == other.selector
+impl std::hash::Hash for RuleRef<'_, '_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as *const Rule<'_> as usize);
     }
 }
 
@@ -88,24 +97,25 @@ impl<'i> RuleSet<'i> {
     }
 
     fn extract_key_selector(selector: &Selector) -> KeySelector {
-        // Find the rightmost compound selector (key selector) for indexing
-        if let Some(component) = selector.iter().last() {
+        // Scan the whole rightmost compound for something indexable, preferring the most
+        // selective key.
+        let mut key = KeySelector::Universal;
+        for component in selector.iter() {
             match component {
-                Component::ID(id) => {
-                    return KeySelector::Id(id.0.to_string());
-                }
+                Component::ID(id) => return KeySelector::Id(id.0.to_string()),
                 Component::Class(class) => {
-                    return KeySelector::Class(LocalName::from(&*class.0));
+                    key = KeySelector::Class(LocalName::from(&*class.0));
                 }
                 Component::LocalName(name) => {
-                    return KeySelector::Tag(LocalName::from(&*name.lower_name.0));
+                    if matches!(key, KeySelector::Universal) {
+                        key = KeySelector::Tag(LocalName::from(&*name.lower_name.0));
+                    }
                 }
                 _ => {}
             }
         }
 
-        // Fallback to universal bucket
-        KeySelector::Universal
+        key
     }
 
     /// Gets all rules that might match the given element from indexed buckets.
@@ -195,7 +205,7 @@ fn calculate_matching_rules<'a, 'i>(
     element: &NodeDataRef<ElementData>,
     rule_set: &'a RuleSet<'i>,
     bloom: &mut StyleBloom,
-    rules: &mut HashSet<&'a Rule<'i>>,
+    rules: &mut HashSet<RuleRef<'a, 'i>>,
 ) {
     // Get potential matching rules from indexed buckets
     let potential_rules = rule_set.get_potential_rules(element);
@@ -203,7 +213,7 @@ fn calculate_matching_rules<'a, 'i>(
     // Filter rules by actually matching selectors and insert into the set
     for rule in potential_rules {
         if matches_rule(element, rule, bloom) {
-            rules.insert(rule);
+            rules.insert(RuleRef(rule));
         }
     }
 }
@@ -254,7 +264,7 @@ pub fn calculate_styles_for_tree<'i>(
 
     rules
         .into_iter()
-        .map(|rule| rule.selector.clone())
+        .map(|rule| rule.0.selector.clone())
         .collect()
 }
 
