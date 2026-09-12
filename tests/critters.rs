@@ -1024,3 +1024,55 @@ fn exclude_external_edge_cases() {
         "Should have at least one inline style from existing.css"
     );
 }
+
+// The matching engine cannot parse modern pseudo-classes and pseudo-elements. Those selectors
+// are retained rather than treated as unused, and because each selector in a list is handled
+// individually, an unparseable member neither rescues nor condemns the ones beside it.
+#[test]
+fn retains_unparseable_selectors_in_selector_lists() {
+    let tmp_dir = create_test_folder(&[(
+        "style.css",
+        concat!(
+            "h1, .card:where(.featured) { color: blue; }\n",
+            ".absent, .widget::part(label) { color: red; }\n",
+            ".absent { color: orange; }",
+        ),
+    )]);
+
+    let html = construct_html(
+        r#"<link rel="stylesheet" href="style.css">"#,
+        r#"<h1>Hello World!</h1>"#,
+    );
+
+    let critters = Critters::new(CrittersOptions {
+        path: tmp_dir.clone(),
+        external: true,
+        ..Default::default()
+    });
+
+    let processed = critters
+        .process(&html)
+        .expect("Failed to inline critical css");
+
+    let parser = critters_rs::html::parse_html();
+    let dom = parser.one(processed);
+
+    let inline_style = dom
+        .select_first("head > style")
+        .expect("Failed to locate inline style")
+        .text_contents();
+
+    // A matched selector survives alongside an unparseable one; compiling the list as a unit used
+    // to fail on `:where()` and discard `h1` with it.
+    assert!(
+        inline_style.contains("h1,.card:where(.featured){color:#00f}"),
+        "{inline_style}"
+    );
+
+    // ...and an unparseable selector does not drag its unmatched siblings along with it.
+    assert!(
+        inline_style.contains(".widget::part(label){color:red}"),
+        "{inline_style}"
+    );
+    assert!(!inline_style.contains(".absent"), "{inline_style}");
+}
