@@ -4,12 +4,11 @@
 // Remove this once the issue has been addressed.
 #![allow(clippy::result_unit_err)]
 
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::iter::Rev;
 
 use crate::html::node_data_ref::NodeDataRef;
-use crate::html::select::Selectors;
+use crate::html::select::{Selectors, SelectorsExt};
 use crate::html::tree::{ElementData, NodeRef};
 
 impl NodeRef {
@@ -160,7 +159,7 @@ impl NodeRef {
 
     /// Return an iterator of the inclusive descendants element that match the given selector list.
     #[inline]
-    pub fn select(&self, selectors: &str) -> Result<Select<Elements<Descendants>>, ()> {
+    pub fn select<'i>(&self, selectors: &'i str) -> Result<Select<'i, Elements<Descendants>>, ()> {
         self.inclusive_descendants().select(selectors)
     }
 
@@ -381,42 +380,39 @@ filter_map_like_iterator! {
 }
 
 /// An element iterator adaptor that yields elements maching given selectors.
-pub struct Select<I, S = Selectors>
+pub struct Select<'i, I>
 where
     I: Iterator<Item = NodeDataRef<ElementData>>,
-    S: Borrow<Selectors>,
 {
     /// The underlying iterator.
     pub iter: I,
 
     /// The selectors to be matched.
-    pub selectors: S,
+    pub selectors: Selectors<'i>,
 }
 
-impl<I, S> Iterator for Select<I, S>
+impl<I> Iterator for Select<'_, I>
 where
     I: Iterator<Item = NodeDataRef<ElementData>>,
-    S: Borrow<Selectors>,
 {
     type Item = NodeDataRef<ElementData>;
 
     #[inline]
     fn next(&mut self) -> Option<NodeDataRef<ElementData>> {
-        let selectors = self.selectors.borrow();
+        let selectors = &self.selectors;
         self.iter
             .by_ref()
             .find(|element| selectors.matches(element))
     }
 }
 
-impl<I, S> DoubleEndedIterator for Select<I, S>
+impl<I> DoubleEndedIterator for Select<'_, I>
 where
     I: DoubleEndedIterator<Item = NodeDataRef<ElementData>>,
-    S: Borrow<Selectors>,
 {
     #[inline]
     fn next_back(&mut self) -> Option<NodeDataRef<ElementData>> {
-        let selectors = self.selectors.borrow();
+        let selectors = &self.selectors;
         self.iter
             .by_ref()
             .rev()
@@ -446,7 +442,7 @@ pub trait NodeIterator: Sized + Iterator<Item = NodeRef> {
 
     /// Filter this node iterator to elements maching the given selectors.
     #[inline]
-    fn select(self, selectors: &str) -> Result<Select<Elements<Self>>, ()> {
+    fn select<'i>(self, selectors: &'i str) -> Result<Select<'i, Elements<Self>>, ()> {
         self.elements().select(selectors)
     }
 }
@@ -455,7 +451,7 @@ pub trait NodeIterator: Sized + Iterator<Item = NodeRef> {
 pub trait ElementIterator: Sized + Iterator<Item = NodeDataRef<ElementData>> {
     /// Filter this element iterator to elements maching the given selectors.
     #[inline]
-    fn select(self, selectors: &str) -> Result<Select<Self>, ()> {
+    fn select<'i>(self, selectors: &'i str) -> Result<Select<'i, Self>, ()> {
         Selectors::compile(selectors)
             .map(|s| Select {
                 iter: self,

@@ -4,37 +4,38 @@
 //! using techniques from modern browser engines like Blink and WebKit.
 
 use crate::html::filter::StyleBloom;
+use crate::html::select::SelectorExt;
 use crate::html::{ElementData, NodeDataRef, Selector};
 use html5ever::{local_name, LocalName};
-use selectors::context::{MatchingContext, MatchingMode};
-use selectors::parser::{AncestorHashes, Component};
+use parcel_selectors::context::{MatchingContext, MatchingMode};
+use parcel_selectors::parser::{AncestorHashes, Component};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
-/// A CSS rule with selector, specificity, and declaration block.
+/// A CSS rule with its selector and ancestor hashes.
 #[derive(Debug, Clone, Eq)]
-struct Rule {
+struct Rule<'i> {
     /// The CSS selector for this rule
-    pub selector: Selector,
+    pub selector: Selector<'i>,
     /// The ancestor hashes for this rule
     pub hashes: AncestorHashes,
 }
 
-impl Rule {
+impl<'i> Rule<'i> {
     /// Creates a new CSS rule with the given parameters.
-    pub fn new(selector: Selector) -> Self {
+    pub fn new(selector: Selector<'i>) -> Self {
         let hashes = selector.ancestor_hashes();
         Self { selector, hashes }
     }
 }
 
-impl std::hash::Hash for Rule {
+impl std::hash::Hash for Rule<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.selector.hash(state);
     }
 }
 
-impl PartialEq for Rule {
+impl PartialEq for Rule<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.selector == other.selector
     }
@@ -45,27 +46,27 @@ impl PartialEq for Rule {
 /// Rules are partitioned into buckets by their key selector component,
 /// enabling O(1) lookup time for most selector types.
 #[derive(Debug, Default)]
-struct RuleSet {
+struct RuleSet<'i> {
     /// Rules indexed by ID selectors (highest priority)
-    pub id_rules: HashMap<String, Vec<Rule>>,
+    pub id_rules: HashMap<String, Vec<Rule<'i>>>,
     /// Rules indexed by class selectors
-    pub class_rules: HashMap<LocalName, Vec<Rule>>,
+    pub class_rules: HashMap<LocalName, Vec<Rule<'i>>>,
     /// Rules indexed by tag selectors
-    pub tag_rules: HashMap<LocalName, Vec<Rule>>,
+    pub tag_rules: HashMap<LocalName, Vec<Rule<'i>>>,
     /// Universal rules and other selectors that can't be indexed
-    pub universal_rules: Vec<Rule>,
+    pub universal_rules: Vec<Rule<'i>>,
     /// Total rule count for performance tracking
     pub rule_count: usize,
 }
 
-impl RuleSet {
+impl<'i> RuleSet<'i> {
     /// Creates a new empty rule set.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a rule to the appropriate hash bucket based on its key selector.
-    pub fn add_rule(&mut self, rule: Rule) {
+    pub fn add_rule(&mut self, rule: Rule<'i>) {
         let key_component = Self::extract_key_selector(&rule.selector);
 
         match key_component {
@@ -91,13 +92,13 @@ impl RuleSet {
         if let Some(component) = selector.iter().last() {
             match component {
                 Component::ID(id) => {
-                    return KeySelector::Id(id.to_string());
+                    return KeySelector::Id(id.0.to_string());
                 }
                 Component::Class(class) => {
-                    return KeySelector::Class(class.clone());
+                    return KeySelector::Class(LocalName::from(&*class.0));
                 }
                 Component::LocalName(name) => {
-                    return KeySelector::Tag(name.lower_name.clone());
+                    return KeySelector::Tag(LocalName::from(&*name.lower_name.0));
                 }
                 _ => {}
             }
@@ -111,7 +112,10 @@ impl RuleSet {
     ///
     /// This performs fast O(1) hash lookups rather than scanning all rules.
     #[inline]
-    pub fn get_potential_rules(&self, element: &NodeDataRef<ElementData>) -> SmallVec<[&Rule; 16]> {
+    pub fn get_potential_rules(
+        &self,
+        element: &NodeDataRef<ElementData>,
+    ) -> SmallVec<[&Rule<'i>; 16]> {
         let attributes = element.attributes.borrow();
 
         // Estimate capacity based on universal rules + typical matches
@@ -145,8 +149,8 @@ impl RuleSet {
         rules
     }
 }
-impl FromIterator<Rule> for RuleSet {
-    fn from_iter<I: IntoIterator<Item = Rule>>(iter: I) -> Self {
+impl<'i> FromIterator<Rule<'i>> for RuleSet<'i> {
+    fn from_iter<I: IntoIterator<Item = Rule<'i>>>(iter: I) -> Self {
         let mut set = RuleSet::new();
 
         for rule in iter {
@@ -175,7 +179,7 @@ fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut Sty
         MatchingMode::Normal,
         Some(bloom.filter()),
         None,
-        selectors::context::QuirksMode::NoQuirks,
+        parcel_selectors::context::QuirksMode::NoQuirks,
     );
 
     rule.selector
@@ -187,11 +191,11 @@ fn matches_rule(element: &NodeDataRef<ElementData>, rule: &Rule, bloom: &mut Sty
 /// Uses indexed lookups and bloom filter optimization for performance,
 /// then applies CSS cascade rules (specificity + source order).
 #[inline]
-fn calculate_matching_rules<'a>(
+fn calculate_matching_rules<'a, 'i>(
     element: &NodeDataRef<ElementData>,
-    rule_set: &'a RuleSet,
+    rule_set: &'a RuleSet<'i>,
     bloom: &mut StyleBloom,
-    rules: &mut HashSet<&'a Rule>,
+    rules: &mut HashSet<&'a Rule<'i>>,
 ) {
     // Get potential matching rules from indexed buckets
     let potential_rules = rule_set.get_potential_rules(element);
@@ -208,11 +212,18 @@ fn calculate_matching_rules<'a>(
 ///
 /// Returns a mapping from elements to their matching CSS rules,
 /// useful for comprehensive style analysis.
-pub fn calculate_styles_for_tree(
+///
+/// Selectors that are not [`SelectorExt::is_matchable`] are skipped rather than matched, since the
+/// engine panics on some of them.
+pub fn calculate_styles_for_tree<'i>(
     root: &NodeDataRef<ElementData>,
-    selectors: impl IntoIterator<Item = Selector>,
-) -> HashSet<Selector> {
-    let rule_set: RuleSet = selectors.into_iter().map(Rule::new).collect();
+    selectors: impl IntoIterator<Item = Selector<'i>>,
+) -> HashSet<Selector<'i>> {
+    let rule_set: RuleSet = selectors
+        .into_iter()
+        .filter(|selector| selector.is_matchable())
+        .map(Rule::new)
+        .collect();
     let mut bloom = StyleBloom::new();
     bloom.rebuild(root.clone());
 
@@ -399,7 +410,7 @@ mod tests {
         let document = parse_html().one(html);
         let root = document.select_first("body").unwrap();
 
-        let selectors = vec![".level2", ".level3", ".unused"]
+        let selectors = [".level2", ".level3", ".unused"]
             .iter()
             .flat_map(|s| Selectors::compile(s).unwrap().0)
             .collect_vec();

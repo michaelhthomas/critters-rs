@@ -22,7 +22,9 @@ mod tree;
 pub use attributes::{Attribute, Attributes, ExpandedName};
 pub use node_data_ref::NodeDataRef;
 pub use parser::{parse_fragment, parse_html, parse_html_with_options, ParseOpts, Sink};
-pub use select::{Selector, Selectors, Specificity};
+pub use select::{
+    ImplOf, LightningCss, Selector, SelectorExt, SelectorParseError, Selectors, SelectorsExt,
+};
 pub use tree::{Doctype, DocumentData, ElementData, Node, NodeData, NodeRef};
 
 /// This module re-exports a number of traits that are useful when using Kuchikiki.
@@ -33,5 +35,6 @@ pub use tree::{Doctype, DocumentData, ElementData, Node, NodeData, NodeRef};
 /// ```
 pub mod traits {
     pub use crate::html::iter::{ElementIterator, NodeIterator};
+    pub use crate::html::select::{SelectorExt, SelectorsExt};
     pub use html5ever::tendril::TendrilSink;
 }

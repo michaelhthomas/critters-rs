@@ -1,6 +1,6 @@
 use html5ever::{local_name, namespace_url, ns, LocalName, Namespace, Prefix};
 use indexmap::{map::Entry, IndexMap};
-use selectors::attr::{CaseSensitivity, SELECTOR_WHITESPACE};
+use parcel_selectors::attr::{CaseSensitivity, SELECTOR_WHITESPACE};
 
 /// Convenience wrapper around a indexmap that adds method for attributes in the null namespace.
 #[derive(Debug, Clone)]
